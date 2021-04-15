@@ -1,7 +1,7 @@
 from torch import Tensor
 import torch.nn as nn
 
-from .experiment_config import DatasetType
+from experiment_config import DatasetType
 
 
 class ExperimentBaseModel(nn.Module):

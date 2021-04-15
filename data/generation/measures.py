@@ -8,8 +8,8 @@ import torch
 from torch import Tensor
 from torch.utils.data.dataloader import DataLoader
 
-from .experiment_config import ComplexityType as CT
-from .models import ExperimentBaseModel
+from experiment_config import ComplexityType as CT
+from models import ExperimentBaseModel
 
 
 # TODO: Add SoTL and SoTL-E

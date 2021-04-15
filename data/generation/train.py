@@ -4,9 +4,9 @@ import pickle
 import simple_parsing
 import torch
 
-from .experiment import Experiment
-from .experiment_config import Config, HParams, State
-from .logs import WandbLogger
+from experiment import Experiment
+from experiment_config import Config, HParams, State
+from logs import WandbLogger
 
 if __name__ == '__main__':
     # Prepare experiment settings

@@ -4,7 +4,7 @@ from typing import Dict, Optional
 from torch import Tensor
 import wandb
 
-from .experiment_config import (
+from experiment_config import (
     ComplexityType,
     Config,
     DatasetSubsetType,

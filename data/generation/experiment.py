@@ -7,8 +7,8 @@ import torch
 import torch.nn.functional as F
 from tqdm import trange
 
-from .dataset_helpers import get_dataloaders
-from .experiment_config import (
+from dataset_helpers import get_dataloaders
+from experiment_config import (
     Config,
     DatasetSubsetType,
     HParams,
@@ -16,9 +16,9 @@ from .experiment_config import (
     EvaluationMetrics,
     OptimizerType,
 )
-from .logs import BaseLogger, Printer
-from .measures import get_all_measures
-from .models import NiN
+from logs import BaseLogger, Printer
+from measures import get_all_measures
+from models import NiN
 
 
 class Experiment:

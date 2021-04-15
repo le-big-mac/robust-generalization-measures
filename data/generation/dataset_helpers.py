@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 import torchvision as tv
 
-from .experiment_config import Config, DatasetType, HParams
+from experiment_config import Config, DatasetType, HParams
 
 
 def get_dataloaders(hparams: HParams, config: Config, device: torch.device) -> Tuple[
