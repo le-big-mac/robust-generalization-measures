@@ -13,9 +13,7 @@ from sys import argv
 # Use the same function as in the big CDF plot to get loss per environment
 from figure_cdf_all_measures import get_all_losses
 
-
 ENV_CACHE = "./environment_cache/"
-
 
 # Command line arguments
 datasets = argv[1].split("_")

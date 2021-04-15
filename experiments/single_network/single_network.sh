@@ -1,5 +1,5 @@
 # https://stackoverflow.com/a/42098494
-function parallel {
+function parallel() {
   local time1=$(date +"%H:%M:%S")
   local time2=""
 
@@ -8,7 +8,7 @@ function parallel {
 
   local my_pid=$$
   local children=$(ps -eo ppid | grep -w $my_pid | wc -w)
-  children=$((children-1))
+  children=$((children - 1))
   if [[ $children -ge $max_jobs ]]; then
     wait -n
   fi
@@ -23,8 +23,7 @@ envs='all lr width depth dataset train_size'
 exp_types='v1 v2 v3'
 wandb_tag='sep24'
 
-if (( $# != 1 ))
-then
+if (($# != 1)); then
   echo "Missing wandb entity argument"
   exit 1
 fi
@@ -34,25 +33,25 @@ for exp_type in $exp_types; do
     if [ "$exp_type" != "v1" ] || [ "$env" == "all" ]; then
       for measure in $measures; do
         parallel python experiments/single_network/single_network.py \
+          --env_split=$env \
+          --exp_type=$exp_type \
+          --selected_single_measure=$measure \
+          --bias=True \
+          --lr=$([ "$exp_type" == "v3" ] && echo '0.01' || echo '1.0') \
+          --optim=$optim \
+          --steps=$steps \
+          --wandb_tag=${wandb_tag}_$exp_type
+      done
+      # Bias only baseline
+      parallel python experiments/single_network/single_network.py \
         --env_split=$env \
         --exp_type=$exp_type \
-        --selected_single_measure=$measure \
+        --only_bias__ignore_input=True \
         --bias=True \
         --lr=$([ "$exp_type" == "v3" ] && echo '0.01' || echo '1.0') \
         --optim=$optim \
         --steps=$steps \
         --wandb_tag=${wandb_tag}_$exp_type
-      done
-      # Bias only baseline
-      parallel python experiments/single_network/single_network.py \
-      --env_split=$env \
-      --exp_type=$exp_type \
-      --only_bias__ignore_input=True \
-      --bias=True \
-      --lr=$([ "$exp_type" == "v3" ] && echo '0.01' || echo '1.0') \
-      --optim=$optim \
-      --steps=$steps \
-      --wandb_tag=${wandb_tag}_$exp_type
     fi
   done
 done

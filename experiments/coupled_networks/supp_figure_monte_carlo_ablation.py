@@ -8,7 +8,6 @@ from sys import argv
 from common import pretty_measure
 from figure_cdf_all_measures import get_all_losses
 
-
 ENVIRONMENT_CACHE_PATH = "./environment_cache"
 
 
@@ -40,7 +39,7 @@ def get_complexity_losses_per_hp(datasets, min_ess, filter_noise):
                                                         complexity_losses_per_hp[c]])
         # Sanity check
         assert complexity_losses_per_hp[c]["all"].shape[0] == \
-            sum(complexity_losses_per_hp[c][hp].shape[0] for hp in precomp["hps"])
+               sum(complexity_losses_per_hp[c][hp].shape[0] for hp in precomp["hps"])
 
     return complexity_losses_per_hp
 

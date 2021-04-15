@@ -9,7 +9,6 @@ from warnings import warn
 
 from common import pretty_measure
 
-
 ENVIRONMENT_CACHE_PATH = "./environment_cache"
 
 
@@ -73,7 +72,7 @@ def get_all_losses(hp, precomp, measure, min_ess=12.):
             sum_of_weights = np.array([env_weights[x] for x in zip(v1_idx, v2_idx)])
             sum_of_squared_weights = np.array([env_weights_squared[x] for x in zip(v1_idx, v2_idx)])
             sum_of_squared_weights[np.isclose(sum_of_weights, 0)] = 1  # Avoid division by zero and won't change result
-            effective_sample_sizes = sum_of_weights**2 / sum_of_squared_weights
+            effective_sample_sizes = sum_of_weights ** 2 / sum_of_squared_weights
             assert np.isclose(np.abs(env_weights[(
                 v1_idx[0], v2_idx[0])] - env_weights[(v2_idx[0], v1_idx[0])]).sum(), 0)
 
@@ -123,7 +122,7 @@ def make_figure(datasets, min_ess=12, filter_noise=True):
 
         # Sanity check
         assert complexity_losses_per_hp[c]["all"].shape[0] == \
-            sum(complexity_losses_per_hp[c][hp].shape[0] for hp in precomp["hps"])
+               sum(complexity_losses_per_hp[c][hp].shape[0] for hp in precomp["hps"])
 
     # Order measures by mean sign error over all HPs
     ordered_measures = \

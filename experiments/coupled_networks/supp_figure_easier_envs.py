@@ -14,7 +14,6 @@ from sys import argv
 
 from common import load_data, pretty_measure
 
-
 DATA_PATH = "../../data/nin.cifar10_svhn.csv"
 ENVIRONMENT_CACHE_PATH = "./environment_cache"
 
@@ -98,7 +97,7 @@ def get_environment_losses(data, precomp, measure, min_ess):
     sum_of_weights = np.array([combined_env_weights[e] for e in combined_env_losses.keys()])
     sum_of_squared_weights = np.array([combined_env_weights_squared[e] for e in combined_env_losses.keys()])
     sum_of_squared_weights[np.isclose(sum_of_weights, 0)] = 1  # Avoid division by zero and won't change result
-    effective_sample_sizes = sum_of_weights**2 / sum_of_squared_weights
+    effective_sample_sizes = sum_of_weights ** 2 / sum_of_squared_weights
     selector = np.logical_or(np.isclose(effective_sample_sizes, min_ess), effective_sample_sizes > min_ess)
     return losses[selector]
 

@@ -45,9 +45,11 @@ def hoeffding_weight(delta_gen, n=10000, shift=0):
         Probability that the two generalization gaps are actually different
 
     """
+
     def phi(x, n):
-        return 2 * np.exp(-2 * n * (x / 2)**2)
-    return max(0., 1. - phi(max(np.abs(delta_gen) - shift, 0), n))**2
+        return 2 * np.exp(-2 * n * (x / 2) ** 2)
+
+    return max(0., 1. - phi(max(np.abs(delta_gen) - shift, 0), n)) ** 2
 
 
 def load_data(data_path):
@@ -56,6 +58,7 @@ def load_data(data_path):
     Discard those that do not.
 
     """
+
     def clean_data(data, name=''):
         # Discard measurements that do not meet crossentropy standards and warn
         # These might have reached the max number of epochs.

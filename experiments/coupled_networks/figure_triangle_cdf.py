@@ -9,9 +9,7 @@ from warnings import warn
 
 from common import pretty_measure
 
-
 ENVIRONMENT_CACHE_PATH = "./environment_cache"
-
 
 pretty_hps = {"all": "All", "hp.lr": "lr", "hp.model_depth": "Depth", "hp.model_width": "Width",
               "hp.train_size": "TS", "hp.dataset": "Dataset"}
@@ -75,7 +73,7 @@ def triangle_cdf_plots_get_losses(hp, precomp, measure, min_ess=20.):
             sum_of_weights = np.array([env_weights[x] for x in zip(v1_idx, v2_idx)])
             sum_of_squared_weights = np.array([env_weights_squared[x] for x in zip(v1_idx, v2_idx)])
             sum_of_squared_weights[np.isclose(sum_of_weights, 0)] = 1  # Avoid division by zero and won't change result
-            effective_sample_sizes = sum_of_weights**2 / sum_of_squared_weights
+            effective_sample_sizes = sum_of_weights ** 2 / sum_of_squared_weights
 
             # Filter out envs for which weight sum <= threshold
             losses = np.array([env_losses[x] for x in zip(v1_idx, v2_idx)])

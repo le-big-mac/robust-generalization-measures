@@ -9,7 +9,6 @@ from tqdm import tqdm
 
 from common import get_complexity_measures, hoeffding_weight, get_hps, load_data, sign_error
 
-
 DATA_PATH = "../../data/nin.cifar10_svhn.csv"
 SAVE_PATH = "environment_cache"
 makedirs(SAVE_PATH, exist_ok=True)
@@ -57,7 +56,7 @@ def create_environments(datasets, testing_set_size, filter_noise=True):
 
             # Dont compare pairs of identical HPs or those that differ by more than 1 value
             if (sum(not isclose(h1[i], h2[i]) for i in types_float_idx) +
-                    sum(h1[i] != h2[i] for i in types_no_float_idx)) != 1:
+                sum(h1[i] != h2[i] for i in types_no_float_idx)) != 1:
                 continue
 
             # Attribute a weight to the current pair of HPs based on the generalization gaps
@@ -74,7 +73,7 @@ def create_environments(datasets, testing_set_size, filter_noise=True):
 
             # Accumulate weights needed to calculate effective sample size later
             env_weights[(h1_id, h2_id)] += weight
-            env_weights_squared[(h1_id, h2_id)] += weight**2
+            env_weights_squared[(h1_id, h2_id)] += weight ** 2
 
             # Get the loss for each complexity measure
             for c in c_measures:
@@ -94,7 +93,7 @@ def create_environments(datasets, testing_set_size, filter_noise=True):
         # effective sample size.
         "env_weights": {"raw": env_weights, "squared": env_weights_squared}
     }, open(SAVE_PATH + "/precomputations__filternoise%s__%s.pkl" % \
-                        (str(filter_noise).lower(), "_".join(datasets)), "wb"))
+            (str(filter_noise).lower(), "_".join(datasets)), "wb"))
 
 
 if __name__ == "__main__":

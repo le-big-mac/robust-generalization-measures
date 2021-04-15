@@ -1,3 +1,8 @@
+# My stuff
+.idea/
+experiments/coupled_networks/environment_cache/
+experiments/coupled_networks/figures/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
