@@ -73,8 +73,8 @@ class Experiment:
                                                                                       self.device)
         self.train_history = []
 
-    def save_state(self, postfix: str = '') -> None:
-        checkpoint_file = self.config.checkpoint_dir / (self.hparams.md5 + postfix + '.pt')
+    def save_state(self, file_name: str = '') -> None:
+        checkpoint_file = self.config.checkpoint_dir / (file_name + '.pt')
         torch.save({
             'config': self.hparams,
             'state': self.state,
@@ -128,7 +128,7 @@ class Experiment:
                         print(f'passed ce milestone {passed_milestone}')
                         self.state.ce_check_milestones.pop(0)
                         self.state.ce_check_freq += 1
-                        if self.config.save_epoch_freq is not None:
+                        if self.config.save_state_epochs is not None:
                             self.save_state(f'_ce_{passed_milestone}')
 
             if self.state.converged:
@@ -160,10 +160,10 @@ class Experiment:
                 self.result_save_callback(epoch, val_eval, train_eval)
 
             # Save state
-            is_save_epoch = self.config.save_epoch_freq is not None and (
-                        epoch % self.config.save_epoch_freq == 0 or epoch == self.hparams.epochs or self.state.converged)
+            is_save_epoch = self.config.save_state_epochs is not None and (
+                    epoch in self.config.save_state_epochs or epoch == self.hparams.epochs or self.state.converged)
             if is_save_epoch:
-                self.save_state()
+                self.save_state(f"epoch_{epoch}")
 
             if self.state.converged:
                 print('Converged')

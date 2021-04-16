@@ -18,7 +18,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     hparams: HParams = args.hparams
     config: Config = args.config
-    config.setup_dirs()
+    config = Config(config.id, config.log_batch_freq, config.log_epoch_freq, config.save_state_epochs,
+                    config.root_dir / hparams.md5, config.data_dir, config.verbosity, config.use_tqdm)
     state: State = args.state
     state.ce_check_milestones = hparams.ce_target_milestones.copy()
 
