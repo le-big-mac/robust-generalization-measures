@@ -19,6 +19,7 @@ from experiment_config import (
 from logs import BaseLogger, Printer
 from measures import get_all_measures
 from models import NiN
+from experiment_config import ComplexityType as CT
 
 
 class Experiment:
@@ -70,6 +71,7 @@ class Experiment:
         # Load data
         self.train_loader, self.train_eval_loader, self.test_loader = get_dataloaders(self.hparams, self.config,
                                                                                       self.device)
+        self.train_history = []
 
     def save_state(self, postfix: str = '') -> None:
         checkpoint_file = self.config.checkpoint_dir / (self.hparams.md5 + postfix + '.pt')
@@ -89,6 +91,7 @@ class Experiment:
                             range(2 ** (self.state.ce_check_freq) - 1)]
         ce_check_batches.append(len(self.train_loader) - 1)
 
+        batch_losses = []
         for batch_idx, (data, target) in enumerate(self.train_loader):
             data, target = data.to(self.device, non_blocking=True), target.to(self.device, non_blocking=True)
 
@@ -102,6 +105,7 @@ class Experiment:
 
             cross_entropy.backward()
             loss = cross_entropy.clone()
+            batch_losses.append(loss)
 
             self.model.train()
 
@@ -130,6 +134,8 @@ class Experiment:
             if self.state.converged:
                 break
 
+        self.train_history.append(sum(batch_losses)/len(batch_losses))
+
     def train(self) -> None:
         self.printer.train_start(self.device)
         train_eval, val_eval = None, None
@@ -142,9 +148,10 @@ class Experiment:
             is_evaluation_epoch = (
                         epoch == 1 or epoch == self.hparams.epochs or epoch % self.config.log_epoch_freq == 0)
             if is_evaluation_epoch or self.state.converged:
-                train_eval = self.evaluate(DatasetSubsetType.TRAIN,
-                                           (epoch == self.hparams.epochs or self.state.converged))
+                train_eval = self.evaluate(DatasetSubsetType.TRAIN, True)
                 val_eval = self.evaluate(DatasetSubsetType.TEST)
+                train_eval.all_complexities[CT.VALIDATION_ACC] = val_eval.acc
+
                 self.logger.log_generalization_gap(self.state, train_eval.acc, val_eval.acc, train_eval.avg_loss,
                                                    val_eval.avg_loss, train_eval.all_complexities)
                 self.printer.epoch_metrics(epoch, train_eval, val_eval)
@@ -176,7 +183,8 @@ class Experiment:
 
         all_complexities = {}
         if dataset_subset_type == DatasetSubsetType.TRAIN and compute_all_measures:
-            all_complexities = get_all_measures(self.model, self.init_model, data_loader, acc, self.hparams.seed)
+            all_complexities = get_all_measures(self.model, self.init_model, data_loader, acc, self.train_history,
+                                                self.hparams.seed)
 
         self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc)
 

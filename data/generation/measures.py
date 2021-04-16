@@ -111,6 +111,7 @@ def get_all_measures(
         init_model: ExperimentBaseModel,
         dataloader: DataLoader,
         acc: float,
+        train_history: list,
         seed: int,
 ) -> Dict[CT, float]:
     measures = {}
@@ -247,7 +248,7 @@ def get_all_measures(
     measures[CT.LOG_SPEC_ORIG_MAIN_FFT] = measures[CT.LOG_PROD_OF_SPEC_OVER_MARGIN_FFT] + measures[
         CT.FRO_OVER_SPEC_FFT].log()  # 30
 
-    print("Flatness-based measures")
+    print("Flatness-based Measures")
     sigma = _pacbayes_sigma(model, dataloader, acc, seed)
 
     def _pacbayes_bound(reference_vec: Tensor) -> Tensor:
@@ -270,6 +271,10 @@ def get_all_measures(
     measures[CT.PACBAYES_MAG_INIT] = _pacbayes_mag_bound(dist_w_vec)  # 56
     measures[CT.PACBAYES_MAG_ORIG] = _pacbayes_mag_bound(w_vec)  # 57
     measures[CT.PACBAYES_MAG_FLATNESS] = torch.tensor(1 / mag_sigma ** 2)  # 61
+
+    print("Training History-based Measures")
+    measures[CT.SOTL] = sum(train_history)
+    measures[CT.SOTL_10] = sum(train_history[-10::])
 
     # Adjust for dataset size
     def adjust_measure(measure: CT, value: float) -> float:

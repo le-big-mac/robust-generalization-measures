@@ -58,6 +58,11 @@ class ComplexityType(Enum):
     LOG_SUM_OF_SPEC_OVER_MARGIN_FFT = 134
     LOG_SUM_OF_SPEC_FFT = 135
     DIST_SPEC_INIT_FFT = 141
+    # Training history-based measures
+    SOTL = 150
+    SOTL_10 = 151
+    # Validation accuracy
+    VALIDATION_ACC = 200
 
 
 class OptimizerType(Enum):
