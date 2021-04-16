@@ -12,9 +12,12 @@ from experiment_config import ComplexityType as CT
 from models import ExperimentBaseModel
 
 
-# TODO: Add SoTL and SoTL-E
-
 # Adapted from https://github.com/bneyshabur/generalization-bounds/blob/master/measures.py
+# This function reparametrizes the networks with batch normalization in a way that it calculates the same function as the
+# original network but without batch normalization. Instead of removing batch norm completely, we set the bias and mean
+# to zero, and scaling and variance to one
+# Warning: This function only works for convolutional and fully connected networks. It also assumes that
+# module.children() returns the children of a module in the forward pass order. Recurssive construction is allowed.
 @torch.no_grad()
 def _reparam(model):
     def in_place_reparam(model, prev_layer=None):
