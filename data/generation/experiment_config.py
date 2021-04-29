@@ -106,6 +106,7 @@ class HParams:
     batch_size: int = 32
     epochs: int = 300
     optimizer_type: OptimizerType = OptimizerType.SGD_MOMENTUM
+    weight_decay: float = 0
     lr: float = 0.01
     # Cross-entropy stopping criterion
     ce_target: Optional[float] = 0.01

@@ -60,11 +60,14 @@ class Experiment:
 
         # Optimizer
         if self.hparams.optimizer_type == OptimizerType.SGD:
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.hparams.lr)
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.hparams.lr,
+                                             weight_decay=hparams.weight_decay)
         elif self.hparams.optimizer_type == OptimizerType.SGD_MOMENTUM:
-            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.hparams.lr, momentum=0.9)
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.hparams.lr, momentum=0.9,
+                                             weight_decay=hparams.weight_decay)
         elif self.hparams.optimizer_type == OptimizerType.ADAM:
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr,
+                                              weight_decay=hparams.weight_decay)
         else:
             raise KeyError
 
