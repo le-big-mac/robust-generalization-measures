@@ -53,7 +53,7 @@ class Experiment:
 
         # Model
         self.model = NiN(self.hparams.model_depth, self.hparams.model_width, self.hparams.base_width,
-                         self.hparams.dataset_type)
+                         self.hparams.dataset_type, self.hparams.batch_norm, self.hparams.dropout_prob)
         print("Number of parameters", sum(p.numel() for p in self.model.parameters() if p.requires_grad))
         self.model.to(device)
         self.init_model = deepcopy(self.model)
