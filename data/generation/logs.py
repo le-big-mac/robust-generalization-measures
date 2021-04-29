@@ -46,11 +46,12 @@ class BaseLogger(object):
             })
 
     def log_epoch_end(self, hparams: HParams, state: State, datasubset: DatasetSubsetType, avg_loss: float,
-                      acc: float) -> None:
+                      acc: float, avg_loss_over_epoch: float) -> None:
         self.log_metrics(
             state.global_batch,
             {
-                'cross_entropy/{}'.format(datasubset.name.lower()): avg_loss,
+                'cross_entropy_epoch_end/{}'.format(datasubset.name.lower()): avg_loss,
+                'average_cross_entropy_over_epoch/{}'.format(datasubset.name.lower()): avg_loss_over_epoch,
                 'accuracy/{}'.format(datasubset.name.lower()): acc,
             })
 

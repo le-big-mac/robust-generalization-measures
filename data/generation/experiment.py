@@ -186,7 +186,8 @@ class Experiment:
             all_complexities = get_all_measures(self.model, self.init_model, data_loader, acc, self.train_history,
                                                 self.hparams.seed)
 
-        self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc)
+        self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
+                                  self.train_history[-1])
 
         return EvaluationMetrics(acc, cross_entropy_loss, num_correct, len(data_loader.dataset), all_complexities)
 
