@@ -121,8 +121,7 @@ class Experiment:
             # Cross-entropy stopping check
             if batch_idx == ce_check_batches[0]:
                 ce_check_batches.pop(0)
-                is_last_batch = batch_idx == (len(self.train_loader) - 1)
-                dataset_ce = self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, log=is_last_batch)[0]
+                dataset_ce = self.evaluate_cross_entropy(DatasetSubsetType.TRAIN)[0]
                 if dataset_ce < self.hparams.ce_target:
                     self.state.converged = True
                 else:
@@ -137,7 +136,9 @@ class Experiment:
             if self.state.converged:
                 break
 
-        self.train_history.append(sum(batch_losses)/len(batch_losses))
+        self.train_history.append(sum(batch_losses) / len(batch_losses))
+        self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, log=True)
+        self.evaluate_cross_entropy(DatasetSubsetType.TEST, log=True)
 
     def train(self) -> None:
         self.printer.train_start(self.device)
@@ -190,7 +191,7 @@ class Experiment:
                                                 self.hparams.seed)
 
         self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
-                                  self.train_history[-1])
+                                  self.train_history[-1] if dataset_subset_type == DatasetSubsetType.TRAIN else None)
 
         return EvaluationMetrics(acc, cross_entropy_loss, num_correct, len(data_loader.dataset), all_complexities)
 
@@ -217,5 +218,6 @@ class Experiment:
         acc = num_correct.item() / num_to_evaluate_on
 
         if log:
-            self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc)
+            self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
+                                      self.train_history[-1] if dataset_subset_type == DatasetSubsetType.TRAIN else None)
         return cross_entropy_loss, acc, num_correct

@@ -46,7 +46,7 @@ class BaseLogger(object):
             })
 
     def log_epoch_end(self, hparams: HParams, state: State, datasubset: DatasetSubsetType, avg_loss: float,
-                      acc: float, avg_loss_over_epoch: float) -> None:
+                      acc: float, avg_loss_over_epoch: float = None) -> None:
         self.log_metrics(
             state.global_batch,
             {
