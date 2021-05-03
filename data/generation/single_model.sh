@@ -20,4 +20,4 @@
 
 # run the application
 
-python3 train.py --log_epoch_freq=5 --lr="$1" --model_depth="$2" --batch_size="$3" --weight_decay="$4"
+python3 train.py --log_epoch_freq=5 --lr="$1" --model_depth="$2" --batch_size="$3" --weight_decay="$4" --batch_norm="$5" --dropout_prob="$6"
