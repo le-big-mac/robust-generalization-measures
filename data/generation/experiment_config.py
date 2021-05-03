@@ -107,6 +107,7 @@ class HParams:
     epochs: int = 300
     optimizer_type: OptimizerType = OptimizerType.SGD_MOMENTUM
     lr: float = 0.01
+    weight_decay: float = 0
     # Cross-entropy stopping criterion
     ce_target: Optional[float] = 0.01
     ce_target_milestones: Optional[List[float]] = field(default_factory=lambda: [0.05, 0.025, 0.015])
