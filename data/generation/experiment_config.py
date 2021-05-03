@@ -97,6 +97,8 @@ class HParams:
     model_depth: int = 2
     model_width: int = 8
     base_width: int = 25
+    batch_norm: bool = True  # We only have batch_norm OR dropout, not both
+    dropout_prob: float = 0
     # Dataset
     dataset_type: DatasetType = DatasetType.CIFAR10
     data_seed: Optional[int] = 42
