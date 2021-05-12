@@ -22,5 +22,5 @@
 lrs='0.001 0.00158 0.00316 0.00631 0.01'
 
 for lr in $lrs; do
-  python3 train.py --log_epoch_freq=5 --lr="$lr" --model_depth="$2" --batch_size="$3" --weight_decay="$4" --batch_norm="$5" --dropout_prob="$6"
+  python3 train.py --log_epoch_freq=5 --lr="$lr" --model_depth="$1" --batch_size="$2" --weight_decay="$3" --batch_norm="$4" --dropout_prob="$5"
 done
