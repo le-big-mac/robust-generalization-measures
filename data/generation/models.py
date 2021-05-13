@@ -19,35 +19,33 @@ class NiNBlock(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=2, padding=1)
-        self.reg1 = nn.BatchNorm2d(planes) if batch_norm else nn.Dropout2d(p=dropout_prob)
+        self.bn1 = nn.BatchNorm2d(planes) if batch_norm else nn.Dropout2d(p=dropout_prob)
 
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=1, stride=1)
-        self.reg2 = nn.BatchNorm2d(planes) if batch_norm else nn.Dropout2d(p=dropout_prob)
+        self.bn2 = nn.BatchNorm2d(planes) if batch_norm else nn.Dropout2d(p=dropout_prob)
 
         self.conv3 = nn.Conv2d(planes, planes, kernel_size=1, stride=1)
-        self.reg3 = nn.BatchNorm2d(planes) if batch_norm else nn.Dropout2d(p=dropout_prob)
+        self.bn3 = nn.BatchNorm2d(planes) if batch_norm else nn.Dropout2d(p=dropout_prob)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.reg1(x)
+        x = self.bn1(x)
         x = self.relu(x)
-        # Note: ok to have dropout before ReLU, behaviour remains the same (if we used different activation it should
-        # be after)
 
         x = self.conv2(x)
-        x = self.reg2(x)
+        x = self.bn2(x)
         x = self.relu(x)
 
         x = self.conv3(x)
-        x = self.reg3(x)
+        x = self.bn3(x)
         x = self.relu(x)
 
         return x
 
 
 class NiN(ExperimentBaseModel):
-    def __init__(self, depth: int, width: int, base_width: int, dataset_type: DatasetType, batch_norm: bool,
-                 dropout_prob: float) -> None:
+    def __init__(self, depth: int, width: int, base_width: int, batch_norm: bool, dropout_prob: float,
+                 dataset_type: DatasetType) -> None:
         super().__init__(dataset_type)
 
         self.base_width = base_width
@@ -59,7 +57,7 @@ class NiN(ExperimentBaseModel):
         self.blocks = nn.Sequential(*blocks)
 
         self.conv = nn.Conv2d(self.base_width * width, self.dataset_type.K, kernel_size=1, stride=1)
-        self.reg = nn.BatchNorm2d(self.dataset_type.K) if batch_norm else nn.Dropout2d(p=dropout_prob)
+        self.bn = nn.BatchNorm2d(self.dataset_type.K) if batch_norm else nn.Dropout2d(p=dropout_prob)
         self.relu = nn.ReLU(inplace=True)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -68,7 +66,7 @@ class NiN(ExperimentBaseModel):
         x = self.blocks(x)
 
         x = self.conv(x)
-        x = self.reg(x)
+        x = self.bn(x)
         x = self.relu(x)
 
         x = self.avgpool(x)

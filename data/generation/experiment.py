@@ -53,7 +53,8 @@ class Experiment:
 
         # Model
         self.model = NiN(self.hparams.model_depth, self.hparams.model_width, self.hparams.base_width,
-                         self.hparams.dataset_type, self.hparams.batch_norm, self.hparams.dropout_prob)
+                         self.hparams.batch_norm, self.hparams.dropout_prob, self.hparams.dataset_type)
+        print(self.model)
         print("Number of parameters", sum(p.numel() for p in self.model.parameters() if p.requires_grad))
         self.model.to(device)
         self.init_model = deepcopy(self.model)
@@ -136,9 +137,9 @@ class Experiment:
             if self.state.converged:
                 break
 
-        self.train_history.append(sum(batch_losses) / len(batch_losses))
-        self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, log=True)
-        self.evaluate_cross_entropy(DatasetSubsetType.TEST, log=True)
+        self.train_history.append(sum(batch_losses)/len(batch_losses))
+        self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, True)
+        self.evaluate_cross_entropy(DatasetSubsetType.TEST, True)
 
     def train(self) -> None:
         self.printer.train_start(self.device)

@@ -18,8 +18,7 @@ from models import ExperimentBaseModel
 # to zero, and scaling and variance to one
 # Warning: This function only works for convolutional and fully connected networks. It also assumes that
 # module.children() returns the children of a module in the forward pass order. Recurssive construction is allowed.
-
-# TODO: need to reparam if dropout (multiply weights by 1/dropout_prob)?
+# TODO: may need a dropout correction for norm-based
 @torch.no_grad()
 def _reparam(model):
     def in_place_reparam(model, prev_layer=None):

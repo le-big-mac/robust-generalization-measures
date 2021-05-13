@@ -97,9 +97,7 @@ class HParams:
     model_depth: int = 2
     model_width: int = 8
     base_width: int = 25
-    # Note: we only have one of batch_norm or dropout (if batch_norm = True no dropout will be added even if
-    # dropout_prob > 0)
-    batch_norm: bool = True
+    batch_norm: bool = True  # We only have batch_norm OR dropout, not both
     dropout_prob: float = 0
     # Dataset
     dataset_type: DatasetType = DatasetType.CIFAR10
@@ -110,8 +108,8 @@ class HParams:
     batch_size: int = 32
     epochs: int = 300
     optimizer_type: OptimizerType = OptimizerType.SGD_MOMENTUM
-    weight_decay: float = 0
     lr: float = 0.01
+    weight_decay: float = 0
     # Cross-entropy stopping criterion
     ce_target: Optional[float] = 0.01
     ce_target_milestones: Optional[List[float]] = field(default_factory=lambda: [0.05, 0.025, 0.015])
