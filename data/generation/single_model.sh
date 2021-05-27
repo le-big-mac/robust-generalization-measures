@@ -19,11 +19,4 @@
 #SBATCH --mail-user=charles.london@wolfson.ox.ac.uk
 
 # run the application
-seeds='0 17 43'
-lrs='0.1 0.05 0.02'
-
-for s in $seeds; do
-  for lr in $lrs; do
-    python3 train.py --log_epoch_freq=5 --seed="$s" --lr="$lr" --model_depth="$1" --batch_size="$2" --weight_decay="$3" --batch_norm="$4" --dropout_prob="$5"
-  done
-done
+python3 train.py --log_epoch_freq=5 --seed="$1" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$7"
