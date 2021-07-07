@@ -2,12 +2,12 @@
 
 # run the application
 seeds='0 17 43'
-lrs='0.1 0.05 0.02'
+lrs='0.01'
 depth='2'
 batch_size='32'
 weight_decay='0'
 batch_norm='False'
-dropout_prob='0 0.2 0.5 0.7'
+dropout_prob='0'
 
 for s in $seeds; do
   for lr in $lrs; do

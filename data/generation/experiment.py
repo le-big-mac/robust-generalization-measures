@@ -109,6 +109,7 @@ class Experiment:
 
             cross_entropy.backward()
             loss = cross_entropy.clone()
+            print(loss)
             batch_losses.append(loss)
 
             self.model.train()
@@ -136,6 +137,9 @@ class Experiment:
 
             if self.state.converged:
                 break
+
+        print("Batch losses:")
+        print(batch_losses)
 
         self.train_history.append(sum(batch_losses)/len(batch_losses))
         self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, True)
@@ -173,6 +177,9 @@ class Experiment:
             if self.state.converged:
                 print('Converged')
                 break
+
+            for param in self.model.parameters():
+                print(param)
 
         self.printer.train_end()
 
@@ -221,4 +228,7 @@ class Experiment:
         if log:
             self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
                                       self.train_history[-1] if dataset_subset_type == DatasetSubsetType.TRAIN else None)
+        print("Cross entropy loss: {}".format(cross_entropy_loss))
+        print("Accuracy: {}".format(acc))
+        print("Num correct: {}".format(num_correct))
         return cross_entropy_loss, acc, num_correct
