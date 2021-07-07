@@ -149,6 +149,10 @@ class Experiment:
         self.printer.train_start(self.device)
         train_eval, val_eval = None, None
 
+        print("Initial Params:")
+        for param in self.model.parameters():
+            print(param)
+
         self.state.global_batch = 0
         for epoch in trange(self.state.epoch, self.hparams.epochs + 1, disable=(not self.config.use_tqdm)):
             self.state.epoch = epoch
@@ -178,6 +182,7 @@ class Experiment:
                 print('Converged')
                 break
 
+            print("Epoch {} Params:".format(epoch))
             for param in self.model.parameters():
                 print(param)
 
