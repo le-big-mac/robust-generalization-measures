@@ -109,7 +109,7 @@ class Experiment:
 
             cross_entropy.backward()
             loss = cross_entropy.clone()
-            print(loss)
+            print("Batch {}: {}".format(batch_idx, loss.item()))
             batch_losses.append(loss)
 
             self.model.train()
@@ -152,6 +152,10 @@ class Experiment:
         print("Initial Params:")
         for param in self.model.parameters():
             print(param)
+            break
+
+        self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, True)
+        self.evaluate_cross_entropy(DatasetSubsetType.TEST, True)
 
         self.state.global_batch = 0
         for epoch in trange(self.state.epoch, self.hparams.epochs + 1, disable=(not self.config.use_tqdm)):
@@ -185,6 +189,7 @@ class Experiment:
             print("Epoch {} Params:".format(epoch))
             for param in self.model.parameters():
                 print(param)
+                break
 
         self.printer.train_end()
 
