@@ -234,7 +234,8 @@ class Experiment:
 
         if log:
             self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
-                                      self.train_history[-1] if dataset_subset_type == DatasetSubsetType.TRAIN else None)
+                                      None if (dataset_subset_type != DatasetSubsetType.TRAIN or len(self.train_history) == 0)
+                                      else self.train_history[-1])
         print("Cross entropy loss: {}".format(cross_entropy_loss))
         print("Accuracy: {}".format(acc))
         print("Num correct: {}".format(num_correct))
