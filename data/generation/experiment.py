@@ -109,7 +109,6 @@ class Experiment:
 
             cross_entropy.backward()
             loss = cross_entropy.clone()
-            print("Batch {}: {}".format(batch_idx, loss.item()))
             batch_losses.append(loss)
 
             self.model.train()
@@ -138,9 +137,6 @@ class Experiment:
             if self.state.converged:
                 break
 
-        print("Batch losses:")
-        print(batch_losses)
-
         self.train_history.append(sum(batch_losses)/len(batch_losses))
         self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, True)
         self.evaluate_cross_entropy(DatasetSubsetType.TEST, True)
@@ -148,14 +144,6 @@ class Experiment:
     def train(self) -> None:
         self.printer.train_start(self.device)
         train_eval, val_eval = None, None
-
-        print("Initial Params:")
-        for param in self.model.parameters():
-            print(param)
-            break
-
-        self.evaluate_cross_entropy(DatasetSubsetType.TRAIN, True)
-        self.evaluate_cross_entropy(DatasetSubsetType.TEST, True)
 
         self.state.global_batch = 0
         for epoch in trange(self.state.epoch, self.hparams.epochs + 1, disable=(not self.config.use_tqdm)):
@@ -184,11 +172,6 @@ class Experiment:
 
             if self.state.converged:
                 print('Converged')
-                break
-
-            print("Epoch {} Params:".format(epoch))
-            for param in self.model.parameters():
-                print(param)
                 break
 
         self.printer.train_end()
