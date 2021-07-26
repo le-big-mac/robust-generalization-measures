@@ -6,7 +6,7 @@ lrs='0.01'
 depth='2'
 batch_size='32'
 weight_decay='0'
-batch_norm='False'
+declar -a batch_norm_layers='False'
 dropout_prob='0'
 
 for s in $seeds; do

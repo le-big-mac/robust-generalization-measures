@@ -97,7 +97,7 @@ class HParams:
     model_depth: int = 2
     model_width: int = 8
     base_width: int = 25
-    batch_norm: bool = True  # We only have batch_norm OR dropout, not both
+    batch_norm_layers: Optional[List[int]] = None
     dropout_prob: float = 0
     # Dataset
     dataset_type: DatasetType = DatasetType.CIFAR10
@@ -136,7 +136,7 @@ class HParams:
 class Config:
     id: int = field(default_factory=lambda: time.time_ns())
     log_batch_freq: Optional[int] = None
-    log_epoch_freq: Optional[int] = 10
+    log_epoch_freq: Optional[int] = 5
     save_state_epochs: Optional[tuple] = (1, 5, 10, 20)
     root_dir: Path = Path('./temp')
     data_dir: Path = Path('./temp/data')

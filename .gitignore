@@ -2,6 +2,7 @@
 .idea/
 experiments/coupled_networks/environment_cache/
 experiments/coupled_networks/figures/
+experiments/coupled_networks/results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
