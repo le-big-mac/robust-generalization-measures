@@ -2,7 +2,7 @@
 
 # run the application
 seeds='0'
-lrs='0.00158, 0.00316, 0.00631, 0.01'
+lrs='0.00158 0.00316 0.00631 0.01'
 depth='3 4 5 6'
 batch_size='32'
 weight_decay='0'
