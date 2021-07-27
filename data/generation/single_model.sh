@@ -20,8 +20,11 @@
 
 # run the application
 
-dps="0 0.05 0.1 0.15 0.2 0.25 0.3"
+seeds="0 17 43"
+d=$(($3 - 1))
+bn_all="$(seq -s ' ' 0 "$d")"
 
-for p in $dps; do
-  python3 train.py --log_epoch_freq=5 --seed="$1" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$p"
+for s in $seeds; do
+  python3 train.py --log_epoch_freq=5 --seed="$s" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay=0 --bn_layers= --dropout_prob=0
+  python3 train.py --log_epoch_freq=5 --seed="$s" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay=0 --bn_layers="$bn_all"  --dropout_prob=0
 done

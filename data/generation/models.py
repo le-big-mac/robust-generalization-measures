@@ -41,7 +41,7 @@ class NiN(ExperimentBaseModel):
 
         blocks = []
         blocks.append(NiNBlock(self.dataset_type.D[0], self.base_width * width, 0 in batch_norm_layers, dropout_prob))
-        for i in range(depth - 1):
+        for i in range(1, depth):
             blocks.append(NiNBlock(self.base_width * width, self.base_width * width, i in batch_norm_layers,
                                    dropout_prob))
         self.blocks = nn.Sequential(*blocks)

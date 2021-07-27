@@ -12,14 +12,14 @@ if __name__ == '__main__':
     # Prepare experiment settings
     parser = simple_parsing.ArgumentParser()
     parser.add_arguments(HParams, dest="hparams")
-    parser.add_argument("-bn_l", "--bn_layers", type=int, nargs="*", help="Layers to add batch norm to", required=True)
+    parser.add_argument("-bn_l", "--bn_layers", type=str, help="Layers to add batch norm to", required=True)
     parser.add_arguments(Config, dest="config")
     parser.add_arguments(State, dest="state")
 
     args = parser.parse_args()
 
     hparams: HParams = args.hparams
-    batch_norm_layers = args.bn_layers
+    batch_norm_layers = list(map(int, args.bn_layers.split()))
     hparams_dict = hparams.__dict__
     hparams_dict["batch_norm_layers"] = batch_norm_layers
     hparams = HParams(**hparams_dict)
