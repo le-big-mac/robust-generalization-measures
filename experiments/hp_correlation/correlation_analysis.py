@@ -5,7 +5,8 @@ import pickle
 from collections import defaultdict
 import sys
 import os
-from save_hp_measures import save_hp_measures
+from save_measures import save_hp_measures
+from typing import List
 
 results_order = ["PARAMS", "INVERSE_MARGIN", "LOG_SPEC_INIT_MAIN", "LOG_SPEC_INIT_MAIN_FFT", "LOG_SPEC_ORIG_MAIN",
                  "LOG_SPEC_ORIG_MAIN_FFT", "LOG_PROD_OF_SPEC_OVER_MARGIN", "LOG_SUM_OF_SPEC_OVER_MARGIN_FFT",
@@ -22,7 +23,49 @@ def dd_list():
     return defaultdict(list)
 
 
-def kendall_correlations(hp: str, fill_nan_epochs: bool = True, filter_train_acc: float = 0):
+def overall_correlation(epochs: List[int] = None, filter_train_acc: float = 0.99):
+    epochs = epochs if epochs else [1, 5, 10, 15, 20]
+
+    with open("./results/all/measures_restricted_lr.pickle", "rb") as f:
+        run_dict = pickle.load(f)
+
+    epoch_measures_dict = defaultdict(dd_list)
+    for params, run_measures in run_dict.items():
+        if run_measures.iloc[-1]["acc"] + run_measures.iloc[-1]["gen"] < filter_train_acc:
+            continue
+
+        for meas in run_measures:
+            meas_str = meas[11:] if meas[:11] == "complexity/" else meas
+            for e in epochs:
+                try:
+                    measure = run_measures.loc[e][meas]
+                except KeyError:
+                    measure = run_measures.iloc[-1][meas]
+                epoch_measures_dict[e][meas_str].append(measure)
+
+    gen_correlation_dict = defaultdict(dd_list)
+    acc_correlation_dict = defaultdict(dd_list)
+    for epoch, measures_dict in epoch_measures_dict.items():
+        print("Epoch: {}".format(epoch))
+        for meas, values in measures_dict.items():
+            print("Meas: {}".format(meas))
+            gen_corr, _ = stats.kendalltau(values, measures_dict["gen"])
+            print("Gen corr: {}".format(gen_corr))
+            gen_correlation_dict[meas][epoch].append(gen_corr)
+            acc_corr, _ = stats.kendalltau(values, measures_dict["acc"])
+            print("Acc corr: {}".format(acc_corr))
+            acc_correlation_dict[meas][epoch].append(acc_corr)
+            print()
+
+    with open("./results/all/gen_correlation-restricted_lr-min_acc_{}.pickle".format(filter_train_acc), "wb+") \
+            as f:
+        pickle.dump(gen_correlation_dict, f)
+    with open("./results/all/acc_correlation-restricted_lr-min_acc_{}.pickle".format(filter_train_acc), "wb+") \
+            as g:
+        pickle.dump(acc_correlation_dict, g)
+
+
+def hp_kendall_correlations(hp: str, fill_nan_epochs: bool = True, filter_train_acc: float = 0.99):
     if os.path.isfile("./results/{}/gen_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
             hp, fill_nan_epochs, filter_train_acc)) and \
             os.path.isfile("./results/{}/acc_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
@@ -70,10 +113,40 @@ def kendall_correlations(hp: str, fill_nan_epochs: bool = True, filter_train_acc
         pickle.dump(acc_correlation_dict, g)
 
 
+# Overall measure used in Fantastic Generalization Measures
+def average_hp_correlations(hps: List[str], corr_type: str, epochs: List[int] = None, fill_nan_epochs: bool = True,
+                            filter_train_acc: float = 0.99):
+    epochs = epochs if epochs else [1, 5, 10, 15, 20]
+
+    measure_epoch_average_corrs = defaultdict(dd_list)
+    for hp in hps:
+        correlation_dict = load_correlation_dict(hp, corr_type, fill_nan_epochs, filter_train_acc)
+
+        for measure, epoch_corrs in correlation_dict.items():
+            for e in epochs:
+                corrs = epoch_corrs[e]
+                print("Epoch {} num corrs {}".format(e, len(corrs)))
+                measure_epoch_average_corrs[measure][e].append(sum(corrs)/len(corrs))
+
+    measure_epoch_av = defaultdict(dict)
+    for measure, epoch_hp_av_corrs in measure_epoch_average_corrs.items():
+        print("Measure: {}".format(measure))
+        for epoch, hp_av_corrs in epoch_hp_av_corrs.items():
+            measure_epoch_av[measure][epoch] = sum(hp_av_corrs)/len(hp_av_corrs)
+            print("Epoch: {}".format(epoch))
+            print("Av corrs: {}".format(hp_av_corrs))
+            print("Av corr over hps: {}".format(sum(hp_av_corrs)/len(hp_av_corrs)))
+
+    hp_str = "_".join(hps)
+    with open("./results/all/av_{}_correlation_over_{}-fill_nan_epochs-{}-min_acc_{}.pickle".format(
+            corr_type, hp_str, fill_nan_epochs, filter_train_acc), "wb+") as f:
+        pickle.dump(measure_epoch_av, f)
+
+
 def load_correlation_dict(hp: str, corr_type: str, fill_nan_epochs: bool = True, filter_train_acc: float = 0):
     if not os.path.isfile("./results/{}/{}_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
             hp, corr_type, fill_nan_epochs, filter_train_acc)):
-        kendall_correlations(hp, fill_nan_epochs, filter_train_acc)
+        hp_kendall_correlations(hp, fill_nan_epochs, filter_train_acc)
 
     with open("./results/{}/{}_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
             hp, corr_type, fill_nan_epochs, filter_train_acc), "rb") as f:
@@ -93,9 +166,9 @@ def make_stats_csv(hp: str, corr_type: str, min_corrs_epoch: int, fill_nan_epoch
 
     with open("./results/{}/{}_stats-min_corrs_{}-fill_nan_epochs_{}-min_acc_{}-figs.csv".format(
             hp, corr_type, min_corrs_epoch, fill_nan_epochs, filter_train_acc), "w+") as csv_file:
-        for k in csv_order:
-            measure_epoch_corrs = correlation_dict[k]
-            csv_str = "{},".format(k)
+        for meas in csv_order:
+            measure_epoch_corrs = correlation_dict[meas]
+            csv_str = "{},".format(meas)
 
             for epoch, corrs in sorted(measure_epoch_corrs.items()):
                 # only include epochs for which we have correlation values for at least min_corrs_epochs families
@@ -121,4 +194,4 @@ def make_stats_string(corrs):
     return csv_str
 
 
-kendall_correlations("model_depth", True, 0.99)
+overall_correlation()

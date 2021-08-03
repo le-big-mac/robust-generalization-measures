@@ -161,6 +161,9 @@ class Experiment:
                                                    val_eval.avg_loss, train_eval.all_complexities)
                 self.printer.epoch_metrics(epoch, train_eval, val_eval)
 
+                if self.state.epoch > 300 and val_eval.acc > 0.99:
+                    self.state.converged = True
+
             if epoch == self.hparams.epochs or self.state.converged:
                 self.result_save_callback(epoch, val_eval, train_eval)
 

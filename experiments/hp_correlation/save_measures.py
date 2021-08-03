@@ -118,4 +118,41 @@ def save_hp_measures(hp: str):
         pickle.dump(frame_dict, out)
 
 
-save_hp_measures("batch_norm")
+def save_all_measures(config_range):
+    run_dict = {}
+    for r in runs:
+        if r.state == "running" \
+                or "batch_norm" not in r.config.keys() \
+                or r.config["batch_norm"] not in config_range["batch_norm"] \
+                or r.config["dropout_prob"] not in config_range["dropout_prob"] \
+                or r.config["lr"] not in config_range["lr"] \
+                or r.config["seed"] not in config_range["seed"] \
+                or r.config["batch_size"] not in config_range["batch_size"] \
+                or r.config["model_depth"] not in config_range["model_depth"]:
+            continue
+
+        key = tuple(r.config[x] for x in hparams)
+        run = r.history()
+        del run['average_cross_entropy_over_epoch/test']
+        # these are all NaN so not deleting this column results in dropna dropping all epochs
+        run = run.dropna()
+        # only keep epochs where we record the complexity measures
+        run = run[[c for c in run.columns if c.lower()[:10] == "complexity" or c.lower() == "accuracy/train"
+                   or c.lower() == "cross_entropy_epoch_end/train"]]
+        if run.index[0] == 0:
+            run.index += 1
+
+        # add in value for variable hyperparameter and gen error and test accuracy
+        run['gen'] = r.summary["generalization/error"]
+        run['acc'] = r.summary["accuracy/test"]
+
+        # construct list of runs (corresponding to each value of non-fixed parameter)
+        run_dict[key] = run
+
+    with open("./results/all/measures_restricted_lr_other.pickle", "wb+") as out:
+        pickle.dump(run_dict, out)
+
+
+config_range = {'lr': [0.00316, 0.00631, 0.01, 0.02], 'batch_size': [32, 64, 128, 256],
+                'model_depth': [2, 3, 4, 5], 'seed': [0, 17, 43], 'dropout_prob': [0], 'batch_norm': [True]}
+save_all_measures(config_range)
