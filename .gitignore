@@ -3,6 +3,7 @@
 experiments/coupled_networks/environment_cache/
 experiments/coupled_networks/figures/
 experiments/hp_correlation/results/
+experiments/hp_correlation/data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

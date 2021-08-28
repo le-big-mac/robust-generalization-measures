@@ -26,7 +26,7 @@ def dd_list():
 def overall_correlation(epochs: List[int] = None, filter_train_acc: float = 0.99):
     epochs = epochs if epochs else [1, 5, 10, 15, 20]
 
-    with open("./results/all/measures_restricted_lr.pickle", "rb") as f:
+    with open("./results/all/measures_lr_range.pickle", "rb") as f:
         run_dict = pickle.load(f)
 
     epoch_measures_dict = defaultdict(dd_list)
@@ -57,10 +57,10 @@ def overall_correlation(epochs: List[int] = None, filter_train_acc: float = 0.99
             acc_correlation_dict[meas][epoch].append(acc_corr)
             print()
 
-    with open("./results/all/gen_correlation-restricted_lr-min_acc_{}.pickle".format(filter_train_acc), "wb+") \
+    with open("./results/all/gen_correlation-lr_range-min_acc_{}.pickle".format(filter_train_acc), "wb+") \
             as f:
         pickle.dump(gen_correlation_dict, f)
-    with open("./results/all/acc_correlation-restricted_lr-min_acc_{}.pickle".format(filter_train_acc), "wb+") \
+    with open("./results/all/acc_correlation-lr_range-min_acc_{}.pickle".format(filter_train_acc), "wb+") \
             as g:
         pickle.dump(acc_correlation_dict, g)
 
