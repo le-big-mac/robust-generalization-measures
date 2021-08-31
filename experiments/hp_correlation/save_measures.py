@@ -8,7 +8,7 @@ import math
 api = wandb.Api()
 runs = api.runs("rgm")
 hparams = ['lr', 'seed', 'batch_norm', 'batch_size', 'model_depth', 'dropout_prob']
-# TODO: fix config values for dropout
+# TODO: fix config values for dropout_prob
 config_values_dict = {"lr": {'lr': [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02, 0.05, 0.1],
                              'batch_size': [32, 64, 128, 256], 'model_depth': [2, 3, 4, 5], 'seed': [0, 17, 43],
                              'dropout_prob': [0], 'batch_norm': [True]},
@@ -18,53 +18,38 @@ config_values_dict = {"lr": {'lr': [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02
                       "batch_size": {'lr': [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02, 0.05, 0.1],
                                      'batch_size': [32, 64, 128, 256], 'model_depth': [2, 3, 4, 5], 'seed': [0, 17, 43],
                                      'dropout_prob': [0], 'batch_norm': [True]},
-                      "dropout": {'lr': [0.01], 'batch_size': [32], 'model_depth': [2, 3, 4, 5], 'seed': [0, 17, 43],
-                                  'dropout_prob': [0, 0.05, 0.1], 'batch_norm': [True]},
+                      "dropout_prob": {'lr': [0.01], 'batch_size': [32], 'model_depth': [2, 3, 4, 5],
+                                       'seed': [0, 16, 17, 42, 43],
+                                       'dropout_prob': [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3], 'batch_norm': [True]},
                       "batch_norm": {'lr': [0.00316, 0.00631, 0.01, 0.02], 'batch_size': [32],
                                      'model_depth': [3, 4, 5, 6], 'seed': [0, 17, 43], 'dropout_prob': [0],
                                      'batch_norm': [0, 1]}
                       }
+bad_runs = [(5, 0.3, 17), (5, 0.2, 17), (5, 0.15, 43)]
+reseed = {(5, 0.3, 42): 17, (5, 0.2, 16): 17, (5, 0.15, 42): 43}
 
 
-def save_hp_measures(hp: str, epochs):
-    fixed_params = hparams
-    fixed_params.remove(hp)
-    config_range = config_values_dict[hp]
+def save_runs(epochs):
+    all_runs = []
 
-    run_dict = defaultdict(list)
     for r in runs:
         if r.state == "running" \
                 or "batch_norm" not in r.config.keys() \
-                or r.config["batch_norm"] not in config_range["batch_norm"] \
-                or r.config["dropout_prob"] not in config_range["dropout_prob"] \
-                or r.config["lr"] not in config_range["lr"] \
-                or r.config["seed"] not in config_range["seed"] \
-                or r.config["batch_size"] not in config_range["batch_size"] \
-                or r.config["model_depth"] not in config_range["model_depth"]:
+                or not r.config["batch_norm"] \
+                or r.config["lr"] != 0.01 \
+                or r.congif["batch_size"] != 32:
             continue
 
-        # if r.state == "running" \
-        #         or "batch_norm_layers" not in r.config.keys() \
-        #         or r.config["dropout_prob"] not in config_range["dropout_prob"] \
-        #         or r.config["lr"] not in config_range["lr"] \
-        #         or r.config["seed"] not in config_range["seed"] \
-        #         or r.config["batch_size"] not in config_range["batch_size"] \
-        #         or r.config["model_depth"] not in config_range["model_depth"]:
-        #     continue
+        key = {x: r.config[x] for x in hparams}
+        print("Key: {}".format(key))
 
-        # TODO: switch out bad seeds
-        # hold all other parameters fixed
-        key = tuple(r.config[x] for x in fixed_params)
         len_loader = math.ceil(50000/int(r.config["batch_size"]))
         epoch_steps = [i * len_loader - 1 for i in epochs]
 
         def transform_step(step):
             return int((step + 1) / len_loader)
 
-        print("Key: {}".format(key))
-        print("{}".format(r.config[hp]))
-
-        history = r.scan_history()
+        history = r.history(samples=10000, pandas=False)
         run = []
         final = {"_step": -1}
         for e in history:
@@ -86,39 +71,14 @@ def save_hp_measures(hp: str, epochs):
                    or c.lower() == "accuracy/test" or c.lower() == "cross_entropy_epoch_end/train"
                    or c.lower() == "cross_entropy_epoch_end/test"]]
 
-        # add in value for variable hyperparameter
-        run["hp"] = r.config[hp]
-        # run[hp] = 1 if len(r.config["batch_norm_layers"]) > 0 else 0
-
         run["final_gen_error"] = run.loc["final"]["accuracy/train"] - run.loc["final"]["accuracy/test"]
         run["final_test_acc"] = run.loc["final"]["accuracy/test"]
 
-        # TODO: this commented out code allows us to get best and 99 measures at epochs in which they are defined (multiples of 5)
-        # # use best test performance stopping criterion
-        # idx_best = run["accuracy/test"].idxmax()
-        # best_measures = run.loc[idx_best]
-        # best_measures.name = "best"
-        # run["best_gen_error"] = best_measures["accuracy/train"] - best_measures["accuracy/test"]
-        # run["best_test_acc"] = run["accuracy/test"][idx_best]
-        #
-        # # use 99 train accuracy stopping criterion (if we want the measures may need to ensure epoch is multiple of 5)
-        # idx_99 = (run["accuracy/train"] > 0.99).idxmax()
-        # if idx_99 >= 1:
-        #     _99_measures = run.loc[idx_99]
-        #     _99_measures.name = "99 acc"
-        #     run["99_gen_error"] = _99_measures["accuracy/train"] - _99_measures["accuracy/test"]
-        #     run["99_test_acc"] = run["accuracy/test"][idx_99]
-        # else:
-        #     run["99_gen_error"] = np.nan
-        #     run["99_test_acc"] = np.nan
-
-        accs = list(r.scan_history(keys=["accuracy/train", "accuracy/test", "_step"]))
-
-        best = max(accs, key=lambda x: x["accuracy/train"])
+        best = max(history, key=lambda x: x["accuracy/train"])
         run["best_gen_error"] = best["accuracy/train"] - best["accuracy/test"]
         run["best_test_acc"] = best["accuracy/test"]
 
-        above_99 = [i for i in accs if i["accuracy/train"] > 0.99]
+        above_99 = [i for i in history if i["accuracy/train"] > 0.99]
         if len(above_99) == 0:
             run["99_gen_error"] = np.nan
             run["99_test_acc"] = np.nan
@@ -128,6 +88,86 @@ def save_hp_measures(hp: str, epochs):
             run["99_test_acc"] = first_99["accuracy/test"]
 
         print(run)
+
+        # construct list of runs (corresponding to each value of non-fixed parameter)
+        all_runs.append((key, run))
+
+    with open("./data/no_dropout_runs_{}.pickle".format(epochs), "wb+") as out:
+        pickle.dump(all_runs, out)
+
+
+def save_hp_measures(hp: str, epochs):
+    fixed_params = hparams
+    fixed_params.remove(hp)
+    config_range = config_values_dict[hp]
+
+    run_dict = defaultdict(list)
+    for r in runs:
+        if r.state == "running" \
+                or "batch_norm" not in r.config.keys() \
+                or r.config["batch_norm"] not in config_range["batch_norm"] \
+                or r.config["dropout_prob"] not in config_range["dropout_prob"] \
+                or r.config["lr"] not in config_range["lr"] \
+                or r.config["seed"] not in config_range["seed"] \
+                or r.config["batch_size"] not in config_range["batch_size"] \
+                or r.config["model_depth"] not in config_range["model_depth"]:
+            continue
+
+        # some of the seeds got messed up in the dropout_prob experiments, fixing them here
+        replace_key = (r.config["model_depth"], r.config["dropout_prob"], r.config["seed"])
+        if replace_key in bad_runs:
+            continue
+        r.config["seed"] = r.config["seed"] if replace_key not in reseed else reseed[replace_key]
+        num_runs +=1
+
+        key = tuple(r.config[x] for x in fixed_params)
+        len_loader = math.ceil(50000/int(r.config["batch_size"]))
+        epoch_steps = [i * len_loader - 1 for i in epochs]
+
+        def transform_step(step):
+            return int((step + 1) / len_loader)
+
+        history = r.history(samples=10000, pandas=False)
+        run = []
+        final = {"_step": -1}
+        for e in history:
+            if e["_step"] in epoch_steps:
+                e = e.copy()
+                e["epoch"] = transform_step(e["_step"])
+                run.append(e)
+            if "complexity/SOTL" in e and final["_step"] < e["_step"] <= 1000 * len_loader - 1:
+                e = e.copy()
+                e["epoch"] = "final"
+                final = e
+
+        run.append(final)
+        run = pd.DataFrame(run)
+        run = run.set_index("epoch")
+        assert not run["complexity/SOTL"].isnull().values.any()
+
+        run = run[[c for c in run.columns if c.lower()[:10] == "complexity" or c.lower() == "accuracy/train"
+                   or c.lower() == "accuracy/test" or c.lower() == "cross_entropy_epoch_end/train"
+                   or c.lower() == "cross_entropy_epoch_end/test"]]
+
+        # add in value for variable hyperparameter
+        run["hp"] = r.config[hp]
+        # run[hp] = 1 if len(r.config["batch_norm_layers"]) > 0 else 0
+
+        run["final_gen_error"] = run.loc["final"]["accuracy/train"] - run.loc["final"]["accuracy/test"]
+        run["final_test_acc"] = run.loc["final"]["accuracy/test"]
+
+        best = max(history, key=lambda x: x["accuracy/train"])
+        run["best_gen_error"] = best["accuracy/train"] - best["accuracy/test"]
+        run["best_test_acc"] = best["accuracy/test"]
+
+        above_99 = [i for i in history if i["accuracy/train"] > 0.99]
+        if len(above_99) == 0:
+            run["99_gen_error"] = np.nan
+            run["99_test_acc"] = np.nan
+        else:
+            first_99 = min(above_99, key=lambda x: x["_step"])
+            run["99_gen_error"] = first_99["accuracy/train"] - first_99["accuracy/test"]
+            run["99_test_acc"] = first_99["accuracy/test"]
 
         # construct list of runs (corresponding to each value of non-fixed parameter)
         run_dict[key].append(run)
@@ -140,7 +180,6 @@ def save_hp_measures(hp: str, epochs):
             print("Key: {}".format(key))
             continue
 
-        num_samples, longest_run = max([(len(group[r].index), r) for r in range(len(group))])
         sample_measures = {}
 
         for epoch in epochs:
@@ -160,7 +199,6 @@ def save_hp_measures(hp: str, epochs):
 
             # with each epoch associate a dataframe of the values of the measures for different hps
             df = pd.DataFrame(runs_epoch_measures)
-            print(df)
             df = df.astype(np.float64)
             df = df.set_index("hp")
             sample_measures[epoch] = df
@@ -172,7 +210,6 @@ def save_hp_measures(hp: str, epochs):
         df = pd.DataFrame.from_records(runs_final_measures)
         df = df.astype(np.float64)
         df = df.set_index("hp")
-        # ensure final values are sorted to end
         sample_measures["final"] = df
 
         fixed_params_dict[key] = sample_measures
@@ -218,4 +255,4 @@ def save_all_measures(config_range):
 
 config_range = {'lr': [0.001, 0.00316, 0.01, 0.02], 'batch_size': [32, 64, 128, 256],
                 'model_depth': [2, 3, 4, 5], 'seed': [0, 17, 43], 'dropout_prob': [0], 'batch_norm': [True]}
-save_hp_measures('lr', [1, 5, 10, 15, 20])
+save_hp_measures("dropout_prob", [1, 5, 10, 15, 20])
