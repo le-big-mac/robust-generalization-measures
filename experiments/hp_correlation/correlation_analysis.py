@@ -65,51 +65,53 @@ def overall_correlation(epochs: List[int] = None, filter_train_acc: float = 0.99
         pickle.dump(acc_correlation_dict, g)
 
 
-def hp_kendall_correlations(hp: str, fill_nan_epochs: bool = True, filter_train_acc: float = 0.99):
-    if os.path.isfile("./results/{}/gen_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
-            hp, fill_nan_epochs, filter_train_acc)) and \
-            os.path.isfile("./results/{}/acc_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
-                hp, fill_nan_epochs, filter_train_acc)):
+def hp_kendall_correlations(hp: str, epochs: List[int], type: str, fill_nan_epochs: bool = True,
+                            filter_train_acc: float = 0.99):
+    if os.path.isfile("./results/{}/gen_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
+            hp, type, fill_nan_epochs, filter_train_acc)) and \
+            os.path.isfile("./results/{}/acc_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
+                hp, type, fill_nan_epochs, filter_train_acc)):
         return
 
-    if not os.path.isfile("./results/{}/measures.pickle".format(hp)):
-        save_hp_measures(hp)
+    if not os.path.isfile("./results/{}/measures_{}.pickle".format(hp, epochs)):
+        save_hp_measures(hp, epochs)
 
-    with open("./results/{}/measures.pickle".format(hp), "rb") as f:
+    with open("./results/{}/measures_{}.pickle".format(hp, epochs), "rb") as f:
         key_measures_dict = pickle.load(f)
 
     gen_correlation_dict = defaultdict(dd_list)
     acc_correlation_dict = defaultdict(dd_list)
 
     for fixed_params, epoch_measure_dict in key_measures_dict.items():
-        # if final train accuracy of any run in group is below filter accuracy remove it
-        if (epoch_measure_dict[sys.maxsize]["acc"] + epoch_measure_dict[sys.maxsize]["gen"] < filter_train_acc).any():
+        # if final train accuracy of any run in group is below filter accuracy then filter out entire group
+        if (epoch_measure_dict["final"]["accuracy/train"] < filter_train_acc).any():
             continue
 
         for epoch, epoch_measures in epoch_measure_dict.items():
-            # if fill_nan_epochs is true then fill any nan rows with the values from epoch == sys.maxsize
+            # if fill_nan_epochs is true then fill any nan rows (model had converged before this epoch)
+            # with the values from the final epoch
             if not fill_nan_epochs and epoch_measures.isnull().values.any():
                 continue
             elif epoch_measures.isnull().values.any():
                 for index, row in epoch_measures.iterrows():
                     if row.isnull().values.any():
-                        epoch_measures.loc[index] = epoch_measure_dict[sys.maxsize].loc[index]
+                        epoch_measures.loc[index] = epoch_measure_dict["final"].loc[index]
 
             epoch_measures = epoch_measures.astype(np.float64)
 
             for meas in epoch_measures:
                 meas_str = meas[11:] if meas[:11] == "complexity/" else meas
 
-                gen_corr, _ = stats.kendalltau(epoch_measures[meas], epoch_measures["gen"])
+                gen_corr, _ = stats.kendalltau(epoch_measures[meas], epoch_measures["{}_gen_error".format(type)])
                 gen_correlation_dict[meas_str][epoch].append(gen_corr)
-                acc_corr, _ = stats.kendalltau(epoch_measures[meas], epoch_measures["acc"])
+                acc_corr, _ = stats.kendalltau(epoch_measures[meas], epoch_measures["{}_test_acc".format(type)])
                 acc_correlation_dict[meas_str][epoch].append(acc_corr)
 
-    with open("./results/{}/gen_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
-            hp, fill_nan_epochs, filter_train_acc), "wb+") as f:
+    with open("./results/{}/gen_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
+            hp, type, fill_nan_epochs, filter_train_acc), "wb+") as f:
         pickle.dump(gen_correlation_dict, f)
-    with open("./results/{}/acc_correlation-fill_nan_epochs_{}-min_acc_{}.pickle".format(
-            hp, fill_nan_epochs, filter_train_acc), "wb+") as g:
+    with open("./results/{}/acc_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
+            hp, type, fill_nan_epochs, filter_train_acc), "wb+") as g:
         pickle.dump(acc_correlation_dict, g)
 
 
@@ -194,4 +196,5 @@ def make_stats_string(corrs):
     return csv_str
 
 
-overall_correlation()
+if __name__ == "__main__":
+    hp_kendall_correlations("dropout_prob", [1, 5, 10, 15, 20], "final", fill_nan_epochs=True, filter_train_acc=0)
