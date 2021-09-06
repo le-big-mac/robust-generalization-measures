@@ -82,6 +82,7 @@ def save_hp_measures(hp: str, epochs):
             r.config["batch_norm"] = True if len(r.config["batch_norm_layers"]) > 0 else False
 
         if r.state == "running" \
+                or "batch_norm" not in r.config \
                 or r.config["batch_norm"] not in config_range["batch_norm"] \
                 or r.config["dropout_prob"] not in config_range["dropout_prob"] \
                 or r.config["lr"] not in config_range["lr"] \
@@ -128,7 +129,9 @@ def save_hp_measures(hp: str, epochs):
                     print("HP: {}".format(measures["hp"]))
                     print("Epoch: {}".format(epoch))
                     print(run)
+                    local_hp = measures["hp"]
                     measures[:] = np.nan
+                    measures["hp"] = local_hp
                 runs_epoch_measures.append(measures)
 
             # with each epoch associate a dataframe of the values of the measures for different hps
@@ -197,10 +200,10 @@ def format_run(r, epochs):
         run["99_gen_error"] = first_99["accuracy/train"] - first_99["accuracy/test"]
         run["99_test_acc"] = first_99["accuracy/test"]
 
-    return r
+    return run
 
 
 if __name__ == "__main__":
-    c = config_values_dict["batch_norm"].copy()
-    c["model_depth"] = [x / 3 for x in c["model_depth"]]
-    save_runs([1, 5, 10, 15, 20], c, "batch_norm")
+    c = config_values_dict["lr"].copy()
+    c["lr"] = [0.001, 0.00316, 0.01, 0.05]
+    save_runs([1, 5, 10, 15, 20], c, "restricted_lr")
