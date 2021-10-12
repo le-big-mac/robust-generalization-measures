@@ -189,8 +189,8 @@ class Experiment:
 
         self.printer.train_end()
 
-        if train_eval is None or val_eval is None:
-            raise RuntimeError
+        # if train_eval is None or val_eval is None:
+        #     raise RuntimeError
 
     @torch.no_grad()
     def evaluate_batch(self, dataset_subset_type: DatasetSubsetType, compute_all_measures: bool = False,
