@@ -20,4 +20,7 @@
 
 # run the application
 
+module load python3/anaconda
+source activate generalization
+
 python3 train.py --log_epoch_freq=5 --seed="$1" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay=0 --batch_norm="True" --dropout_prob=0

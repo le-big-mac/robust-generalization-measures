@@ -207,8 +207,7 @@ class Experiment:
             all_complexities[CT.SOTL] = sum(batches)
             all_complexities[CT.SOTL_10] = sum(batches[-10::])
 
-        self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
-                                  self.train_history[-1] if dataset_subset_type == DatasetSubsetType.TRAIN else None)
+        self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc, 0)
 
         return EvaluationMetrics(acc, cross_entropy_loss, num_correct, len(data_loader.dataset), all_complexities)
 
