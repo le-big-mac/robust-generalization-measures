@@ -19,7 +19,7 @@ if __name__ == '__main__':
     hparams: HParams = args.hparams
     print(vars(hparams))
     config: Config = args.config
-    config = Config(config.id, config.log_batch_freq, config.log_epoch_freq, config.save_state_epochs,
+    config = Config(config.id, config.log_batch_freq, config.log_epoch_freq, config.log_steps, config.save_state_epochs,
                     config.root_dir / hparams.wandb_md5, config.data_dir, config.verbosity, config.use_tqdm)
     config.setup_dirs()
     state: State = args.state
