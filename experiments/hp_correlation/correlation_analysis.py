@@ -1,11 +1,12 @@
-import scipy.stats as stats
-import numpy as np
+import math
+import os
 import pickle
 from collections import defaultdict
-import os
-from save_measures import save_hp_measures
 from typing import List
-import math
+
+import numpy as np
+import scipy.stats as stats
+from save_measures import save_hp_measures
 
 results_order = ["PARAMS", "INVERSE_MARGIN", "LOG_SPEC_INIT_MAIN_FFT", "LOG_SPEC_ORIG_MAIN_FFT",
                  "LOG_SUM_OF_SPEC_OVER_MARGIN_FFT", "LOG_SUM_OF_SPEC_FFT", "LOG_PROD_OF_SPEC_OVER_MARGIN_FFT",
@@ -13,7 +14,7 @@ results_order = ["PARAMS", "INVERSE_MARGIN", "LOG_SPEC_INIT_MAIN_FFT", "LOG_SPEC
                  "LOG_PROD_OF_FRO", "LOG_SUM_OF_FRO_OVER_MARGIN", "LOG_SUM_OF_FRO", "FRO_DIST", "PARAM_NORM",
                  "PATH_NORM_OVER_MARGIN", "PATH_NORM", "PACBAYES_INIT", "PACBAYES_ORIG", "PACBAYES_FLATNESS",
                  "PACBAYES_MAG_INIT", "PACBAYES_MAG_ORIG", "PACBAYES_MAG_FLATNESS", "SOTL", "SOTL_10", "L2", "L2_DIST",
-                 "cross_entropy_epoch_end/train", "accuracy/train", "VALIDATION_ACC", "hp"]
+                 "cross_entropy_epoch_end/train", "accuracy/train", "VALIDATION_ACC"]
 
 
 def dd_list():
@@ -24,7 +25,7 @@ def overall_correlation(run_list: List, epochs: List[int], stop_type: str, name:
     epoch_measures_dict = defaultdict(dd_list)
     for param_dict, run_measures in run_list:
         if run_measures.loc["final"]["accuracy/train"] < filter_train_acc or \
-                math.isnan(stop_type == "99" and run_measures.loc["final"]["99_test_acc"]):
+                (stop_type == "99" and math.isnan(run_measures.loc["final"]["99_test_acc"])):
             continue
 
         for meas in run_measures:
@@ -43,18 +44,23 @@ def overall_correlation(run_list: List, epochs: List[int], stop_type: str, name:
             epoch_measures_dict["final"][meas_str].append(run_measures.loc["final"][meas])
 
     print(epoch_measures_dict.keys())
-    gen_correlation_dict = defaultdict(dd_list)
-    acc_correlation_dict = defaultdict(dd_list)
+    gen_correlation_dict = {}
+    acc_correlation_dict = {}
     for epoch, measures_dict in epoch_measures_dict.items():
         print("Epoch: {}".format(epoch))
         for meas, values in measures_dict.items():
+            if meas not in gen_correlation_dict:
+                gen_correlation_dict[meas] = {}
+            if meas not in acc_correlation_dict:
+                acc_correlation_dict[meas] = {}
+
             print("Meas: {}".format(meas))
             gen_corr, _ = stats.kendalltau(values, measures_dict["{}_gen_error".format(stop_type)])
             print("Gen corr: {}".format(gen_corr))
-            gen_correlation_dict[meas][epoch].append(gen_corr)
+            gen_correlation_dict[meas][epoch] = gen_corr
             acc_corr, _ = stats.kendalltau(values, measures_dict["{}_test_acc".format(stop_type)])
             print("Acc corr: {}".format(acc_corr))
-            acc_correlation_dict[meas][epoch].append(acc_corr)
+            acc_correlation_dict[meas][epoch] = acc_corr
             print()
 
     with open("./results/overall/gen_correlation-{}-type_{}-min_acc_{}.pickle".format(
@@ -64,34 +70,132 @@ def overall_correlation(run_list: List, epochs: List[int], stop_type: str, name:
             name, stop_type, filter_train_acc), "wb+") as g:
         pickle.dump(acc_correlation_dict, g)
 
+    csv_str = measure_epoch_dict_to_csv(acc_correlation_dict)
 
-def overall_correlation_csv(file_name: str):
-    with open("./results/overall/{}.pickle".format(file_name), "rb") as f:
-        correlation_dict = pickle.load(f)
+    with open("./results/overall/acc_correlation-{}-type_{}-min_acc_{}.csv".format(
+            name, stop_type, filter_train_acc), "w+") as f:
+        f.write(csv_str)
 
+
+def measure_epoch_dict_to_csv(correlation_dict):
     csv_str = ""
     for measure in results_order:
         epoch_dict = correlation_dict[measure]
         csv_str += "{},".format(measure)
 
         for epoch in sorted(epoch_dict.keys(), key=lambda v: (isinstance(v, str), v)):
-            corr = epoch_dict[epoch][0]
+            corr = epoch_dict[epoch]
             csv_str += "{},{},".format(epoch, corr)
 
         csv_str += "\n"
 
-    with open("./results/overall/{}.csv".format(file_name), "w+") as f:
+    return csv_str
+
+
+def sign_error(c1, c2, g1, g2):
+    return np.sign(c1 - c2) * np.sign(g1 - g2)
+
+
+def hoeffding_weight(delta_gen, n=10000, shift=0):
+    """
+    This value has the following guarantee. If your measurement of the generalization gap is computed
+    using n (say n=10,000) independent samples, then accepting samples only when this value > p would
+    mean that those samples are legit different with probability at least p.
+
+    Parameters:
+    -----------
+    delta_gen: float
+        The absolute difference between two estimated generalization gaps
+    n: int
+        The size of the data sample used to estimate the generalization gaps
+
+    Returns:
+    --------
+    weight: float
+        Probability that the two generalization gaps are actually different
+
+    """
+
+    def phi(x, n):
+        return 2 * np.exp(-2 * n * (x / 2) ** 2)
+
+    return max(0., 1. - phi(max(np.abs(delta_gen) - shift, 0), n)) ** 2
+
+
+def weighted_correlations(run_list: List, epochs: List[int], stop_type: str, name: str, filter_train_acc: float = 0.99):
+    total_weights_epoch = {}
+    weighted_sign_error_measure_epoch = {}
+    epochs = epochs.copy()
+    epochs.append("final")
+
+    for run1_config, run1 in run_list:
+        if run1.loc["final"]["accuracy/train"] < filter_train_acc or \
+                (stop_type == "99" and math.isnan(run1.loc["final"]["99_test_acc"])):
+            continue
+        for run2_config, run2 in run_list:
+            if run1_config == run2_config or run2.loc["final"]["accuracy/train"] < filter_train_acc or \
+                    (stop_type == "99" and math.isnan(run2.loc["final"]["99_test_acc"])):
+                continue
+
+            for epoch in epochs:
+                try:
+                    run1_measures = run1.loc[epoch]
+                    run2_measures = run2.loc[epoch]
+                except KeyError:
+                    continue
+
+                gen_string = "{}_test_acc".format(stop_type)
+                run1_gen = run1_measures[gen_string]
+                run2_gen = run2_measures[gen_string]
+
+                weight = hoeffding_weight(np.abs(run1_gen - run2_gen), n=10000)
+
+                weight = max(weight - 0.5, 0)
+
+                if epoch not in total_weights_epoch:
+                    total_weights_epoch[epoch] = weight
+                else:
+                    total_weights_epoch[epoch] += weight
+
+                for meas in run1_measures.index:
+                    meas_str = meas[11:] if meas[:11] == "complexity/" else meas
+                    if meas_str not in results_order:
+                        continue
+
+                    if meas_str not in weighted_sign_error_measure_epoch:
+                        weighted_sign_error_measure_epoch[meas_str] = {}
+                    if epoch not in weighted_sign_error_measure_epoch[meas_str]:
+                        weighted_sign_error_measure_epoch[meas_str][epoch] = 0
+
+                    err = sign_error(run1_measures[meas], run2_measures[meas], run1_gen, run2_gen)
+                    weighted_sign_error_measure_epoch[meas_str][epoch] += weight * err
+
+    weighted_sign_error_epoch_measure_normalised = {}
+
+    for meas in results_order:
+        weighted_sign_error_epoch_measure_normalised[meas] = {}
+        print("Measure: {}".format(meas))
+
+        for epoch in epochs:
+            print("Epoch: {}".format(epoch))
+            total_weight = total_weights_epoch[epoch]
+            weighted_sign_error_epoch_measure_normalised[meas][epoch] \
+                = weighted_sign_error_measure_epoch[meas][epoch]/total_weight
+            print("Weighted correlation: {}".format(weighted_sign_error_epoch_measure_normalised[meas][epoch]))
+
+    with open("./results/overall/weighted_acc_correlation-{}-type_{}-min_acc_{}.pickle".format(
+            name, stop_type, filter_train_acc), "wb+") as g:
+        pickle.dump(weighted_sign_error_epoch_measure_normalised, g)
+
+    csv_str = measure_epoch_dict_to_csv(weighted_sign_error_epoch_measure_normalised)
+
+    with open("./results/overall/weighted_acc_correlation-{}-type_{}-min_acc_{}.csv".format(
+            name, stop_type, filter_train_acc), "w+") as f:
         f.write(csv_str)
 
 
 def hp_kendall_correlations(hp: str, epochs: List[int], type: str, fill_nan_epochs: bool = True,
                             filter_train_acc: float = 0.99):
-    if os.path.isfile("./results/{}/gen_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
-            hp, type, fill_nan_epochs, filter_train_acc)) and \
-            os.path.isfile("./results/{}/acc_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
-                hp, type, fill_nan_epochs, filter_train_acc)):
-        return
-
     if not os.path.isfile("./results/{}/measures_{}.pickle".format(hp, epochs)):
         save_hp_measures(hp, epochs)
 
@@ -147,10 +251,49 @@ def hp_kendall_correlations(hp: str, epochs: List[int], type: str, fill_nan_epoc
         pickle.dump(acc_correlation_dict, g)
 
 
+def weighted_hp_correlation(hp: str, epochs: List[int], type: str, fill_nan_epochs: bool = True,
+                            filter_train_acc: float = 0.99):
+    if not os.path.isfile("./results/{}/measures_{}.pickle".format(hp, epochs)):
+        save_hp_measures(hp, epochs)
+
+    with open("./results/{}/measures_{}.pickle".format(hp, epochs), "rb") as f:
+        key_measures_dict = pickle.load(f)
+
+    gen_correlation_dict = defaultdict(dd_list)
+    acc_correlation_dict = defaultdict(dd_list)
+
+    for fixed_params, epoch_measure_dict in key_measures_dict.items():
+        # if final train accuracy of any run in group is below filter accuracy then filter out entire group
+        if (epoch_measure_dict["final"]["accuracy/train"] < filter_train_acc).any() or \
+                (type == "99" and epoch_measure_dict["final"]["99_test_acc"].isna().any()):
+            continue
+
+        for epoch in epochs:
+            for hp1 in epoch_measure_dict["final"].index:
+                for hp2 in epoch_measure_dict["final"].index:
+                    if hp1 == hp2:
+                        continue
+
+                    hp1_measures = epoch_measure_dict[epoch].loc[hp1]
+                    hp2_measures = epoch_measure_dict[epoch].loc[hp2]
+
+                    if hp1_measures.isna().any() or hp2_measures.isna().any():
+                        continue
+
+                    gen_string = "{}_test_acc".format(stop_type)
+                    run1_gen = hp1_measures[gen_string]
+                    run2_gen = hp2_measures[gen_string]
+
+                    weight = hoeffding_weight(np.abs(run1_gen - run2_gen), n=10000)
+                    weight = max(weight - 0.5, 0)
+
+
 # Overall measure used in Fantastic Generalization Measures
 def average_hp_correlations(hps: List[str], corr_type: str, epochs: List[int], stop_type: str,
                             fill_nan_epochs: bool = True, filter_train_acc: float = 0.99):
     epochs.append("final")
+    res_order = results_order.copy()
+    res_order.append("hp")
 
     measure_epoch_average_corrs = {}
     for hp in hps:
@@ -185,31 +328,42 @@ def average_hp_correlations(hps: List[str], corr_type: str, epochs: List[int], s
             print("Av corr over hps: {}".format(hp_av_corrs["average"]))
 
     hp_str = "_".join(hps)
-    with open("./results/all/av_{}_correlation_over_{}-type_{}-fill_nan_epochs-{}-min_acc_{}.pickle".format(
+    with open("./results/average/av_{}_correlation_over_{}-type_{}-fill_nan_epochs-{}-min_acc_{}.pickle".format(
             corr_type, hp_str, stop_type, fill_nan_epochs, filter_train_acc), "wb+") as f:
         pickle.dump(measure_epoch_average_corrs, f)
 
-    with open("./results/all/av_{}_correlation_over_{}-type_{}-fill_nan_epochs-{}-min_acc_{}.csv".format(
+    with open("./results/average/av_{}_correlation_over_{}-type_{}-fill_nan_epochs-{}-min_acc_{}.csv".format(
             corr_type, hp_str, stop_type, fill_nan_epochs, filter_train_acc), "w+") as f:
 
+        csv_str = ","
+        for epoch in epochs:
+            csv_str += "{},".format(epoch)
+            for hp in hps:
+                csv_str += "{},".format(hp)
+            csv_str += "average,"
+        csv_str += "\n"
+
         for measure, epoch_corrs in measure_epoch_average_corrs.items():
-            csv_str = "{},".format(measure)
+            csv_str += "{},".format(measure)
 
             for epoch in epochs:
                 csv_str += "{},".format(epoch)
+                for hp in hps:
+                    csv_str += "{},".format(epoch_corrs[epoch][hp])
                 csv_str += "{},".format(epoch_corrs[epoch]["average"])
 
             csv_str += "\n"
-            f.write(csv_str)
+
+        f.write(csv_str)
 
 
 def load_correlation_dict(hp: str, epochs: List[int], corr_type: str, stop_type: str, fill_nan_epochs: bool = True,
                           filter_train_acc: float = 0):
-    if not os.path.isfile("./results/{}/{}_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
+    if not os.path.isfile("./results/{}/pickle/{}_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
             hp, corr_type, stop_type, fill_nan_epochs, filter_train_acc)):
         hp_kendall_correlations(hp, epochs, stop_type, fill_nan_epochs, filter_train_acc)
 
-    with open("./results/{}/{}_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
+    with open("./results/{}/pickle/{}_correlation-type_{}-fill_nan_epochs_{}-min_acc_{}.pickle".format(
             hp, corr_type, stop_type, fill_nan_epochs, filter_train_acc), "rb") as f:
         correlation_dict = pickle.load(f)
 
@@ -218,13 +372,16 @@ def load_correlation_dict(hp: str, epochs: List[int], corr_type: str, stop_type:
 
 def make_stats_csv(hp: str, epochs: List[int], corr_type: str, stop_type: str, min_corrs_epoch: int,
                    fill_nan_epochs: bool = True, filter_train_acc: float = 0):
+    res_order = results_order.copy()
+    res_order.append("hp")
+
     correlation_dict = load_correlation_dict(hp, epochs, corr_type, stop_type, fill_nan_epochs, filter_train_acc)
 
     min_corrs_epoch = len(correlation_dict["hp"]["final"]) if min_corrs_epoch == 0 else min_corrs_epoch
 
     with open("./results/{}/{}_stats-type_{}-min_corrs_{}-fill_nan_epochs_{}-min_acc_{}.csv".format(
             hp, corr_type, stop_type, min_corrs_epoch, fill_nan_epochs, filter_train_acc), "w+") as csv_file:
-        for meas in results_order:
+        for meas in res_order:
             measure_epoch_corrs = correlation_dict[meas]
             csv_str = "{},".format(meas)
 
@@ -265,10 +422,14 @@ def make_stats_string(corrs):
 
 
 if __name__ == "__main__":
-    for name in ["basic", "batch_norm", "dropout", "restricted_lr"]:
-        with open("./data/runs_{}_[1, 5, 10, 15, 20].pickle".format(name), "rb") as f:
-            run_list = pickle.load(f)
-        a = [("final", 0), ("best", 0), ("99", 0), ("final", 0.99), ("best", 0.99)]
-        for stop_type, filter_acc in a:
-            overall_correlation(run_list, [1, 5, 10, 15, 20], stop_type, name, filter_acc)
-            overall_correlation_csv("acc_correlation-{}-type_{}-min_acc_{}".format(name, stop_type, filter_acc))
+    names = ["basic", "batch_norm", "dropout"]
+    epochs = [1, 5, 10, 15, 20]
+    runs_list = []
+    for n in names:
+        with open("./data/runs_{}_{}.pickle".format(n, epochs), "rb") as out:
+            runs_list += pickle.load(out)
+
+    types = [("best", 0), ("best", 0.99), ("final", 0), ("final", 0.99), ("99", 0)]
+
+    for stop_type, filter_acc in types:
+        weighted_correlations(runs_list, epochs, stop_type, "all_combined", filter_acc)

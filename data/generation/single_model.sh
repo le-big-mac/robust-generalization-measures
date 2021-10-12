@@ -20,8 +20,11 @@
 
 # run the application
 
-dps="0 0.05 0.1 0.15 0.2 0.25 0.3"
+seeds='0 17 43'
+lrs='0.001 0.00158 0.00316 0.00631 0.01 0.02 0.05 0.1'
 
-for p in $dps; do
-  python3 train.py --log_epoch_freq=5 --seed="$1" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$p"
+for s in $seeds; do
+  for l in $lrs; do
+    python3 train.py --log_epoch_freq=5 --seed="$s" --lr="$l" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$7"
+  done
 done

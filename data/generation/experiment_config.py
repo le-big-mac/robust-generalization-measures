@@ -137,6 +137,7 @@ class Config:
     id: int = field(default_factory=lambda: time.time_ns())
     log_batch_freq: Optional[int] = None
     log_epoch_freq: Optional[int] = 5
+    log_steps: Optional[tuple] = (0, 1, 10, 100)
     save_state_epochs: Optional[tuple] = (1, 5, 10, 20)
     root_dir: Path = Path('./temp')
     data_dir: Path = Path('./temp/data')

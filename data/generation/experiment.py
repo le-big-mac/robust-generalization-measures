@@ -101,6 +101,13 @@ class Experiment:
 
             self.state.batch = batch_idx
             self.state.global_batch = (self.state.epoch - 1) * len(self.train_loader) + self.state.batch
+
+            if self.state.global_batch in self.config.log_steps:
+                self.evaluate_batch(DatasetSubsetType.TRAIN, True, batch_losses)
+                self.evaluate(DatasetSubsetType.TEST)
+            if self.state.global_batch > max(self.config.log_steps):
+                break
+
             self.model.train()
             self.optimizer.zero_grad()
 
@@ -150,6 +157,9 @@ class Experiment:
             self.state.epoch = epoch
             self._train_epoch()
 
+            if self.state.global_batch > max(self.config.log_steps):
+                break
+
             is_evaluation_epoch = (
                         epoch == 1 or epoch == self.hparams.epochs or epoch % self.config.log_epoch_freq == 0)
             if is_evaluation_epoch or self.state.converged:
@@ -181,6 +191,26 @@ class Experiment:
 
         if train_eval is None or val_eval is None:
             raise RuntimeError
+
+    @torch.no_grad()
+    def evaluate_batch(self, dataset_subset_type: DatasetSubsetType, compute_all_measures: bool = False,
+                       batches=None) -> EvaluationMetrics:
+        self.model.eval()
+        data_loader = [self.train_eval_loader, self.test_loader][dataset_subset_type]
+
+        cross_entropy_loss, acc, num_correct = self.evaluate_cross_entropy(dataset_subset_type)
+
+        all_complexities = {}
+        if dataset_subset_type == DatasetSubsetType.TRAIN and compute_all_measures:
+            all_complexities = get_all_measures(self.model, self.init_model, data_loader, acc, self.train_history,
+                                                self.hparams.seed)
+            all_complexities[CT.SOTL] = sum(batches)
+            all_complexities[CT.SOTL_10] = sum(batches[-10::])
+
+        self.logger.log_epoch_end(self.hparams, self.state, dataset_subset_type, cross_entropy_loss, acc,
+                                  self.train_history[-1] if dataset_subset_type == DatasetSubsetType.TRAIN else None)
+
+        return EvaluationMetrics(acc, cross_entropy_loss, num_correct, len(data_loader.dataset), all_complexities)
 
     @torch.no_grad()
     def evaluate(self, dataset_subset_type: DatasetSubsetType, compute_all_measures: bool = False) -> EvaluationMetrics:

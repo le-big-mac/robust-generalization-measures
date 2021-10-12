@@ -22,7 +22,10 @@ config_values_dict = {"lr": {'lr': [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02
                                        'dropout_prob': [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3], 'batch_norm': [True]},
                       "batch_norm": {'lr': [0.00316, 0.00631, 0.01, 0.02], 'batch_size': [32],
                                      'model_depth': [3, 4, 5, 6], 'seed': [0, 17, 43], 'dropout_prob': [0],
-                                     'batch_norm': [True, False]}
+                                     'batch_norm': [True, False]},
+                      "restricted_lr": {'lr': [0.001, 0.00316, 0.01, 0.05],
+                                        'batch_size': [32, 64, 128, 256], 'model_depth': [2, 3, 4, 5],
+                                        'seed': [0, 17, 43], 'dropout_prob': [0], 'batch_norm': [True]},
                       }
 bad_runs = [(5, 0.3, 17), (5, 0.2, 17), (5, 0.15, 43)]
 reseed = {(5, 0.3, 42): 17, (5, 0.2, 16): 17, (5, 0.15, 42): 43}
@@ -54,13 +57,16 @@ def save_runs(epochs, config_range, name):
         if replace_key in bad_runs:
             continue
         r.config["seed"] = r.config["seed"] if replace_key not in reseed else reseed[replace_key]
-        num_runs += 1
 
         config = {x: r.config[x] for x in hparams}
         run = format_run(r, epochs)
 
         # construct list of runs (corresponding to each value of non-fixed parameter)
-        all_runs.append((config, run))
+        if "Infinity" not in run.values and np.nan not in run.values:
+            all_runs.append((config, run))
+            num_runs += 1
+        else:
+            print(config)
 
     print(num_runs)
 
@@ -68,8 +74,56 @@ def save_runs(epochs, config_range, name):
         pickle.dump(all_runs, out)
 
 
+def weighted_hparams_save_runs(epochs, config_range, name):
+    all_runs = {}
+
+    num_runs = 0
+    for r in runs:
+        if name == "batch_norm" and "batch_norm_layers" not in r.config:
+            continue
+        elif name == "batch_norm":
+            r.config["batch_norm"] = True if len(r.config["batch_norm_layers"]) > 0 else False
+            r.config["model_depth"] = r.config["model_depth"]/3
+
+        if r.state == "running" \
+                or "batch_norm" not in r.config \
+                or r.config["batch_norm"] not in config_range["batch_norm"] \
+                or r.config["dropout_prob"] not in config_range["dropout_prob"] \
+                or r.config["lr"] not in config_range["lr"] \
+                or r.config["seed"] not in config_range["seed"] \
+                or r.config["batch_size"] not in config_range["batch_size"] \
+                or r.config["model_depth"] not in config_range["model_depth"]:
+            continue
+
+        # some of the seeds got messed up in the dropout_prob experiments, fixing them here
+        replace_key = (r.config["model_depth"], r.config["dropout_prob"], r.config["seed"])
+        if replace_key in bad_runs:
+            continue
+        r.config["seed"] = r.config["seed"] if replace_key not in reseed else reseed[replace_key]
+
+        params = ['lr', 'batch_norm', 'batch_size', 'model_depth', 'dropout_prob']
+        key = tuple(r.config[x] for x in params)
+        if key not in all_runs:
+            all_runs[key] = []
+
+        config = {x: r.config[x] for x in hparams}
+        run = format_run(r, epochs)
+
+        # construct list of runs (corresponding to each value of non-fixed parameter)
+        if "Infinity" not in run.values and np.nan not in run.values:
+            all_runs[key].append((config, run))
+            num_runs += 1
+        else:
+            print(config)
+
+    print(num_runs)
+
+    with open("./data/runs_joined_seed_{}_{}.pickle".format(name, epochs), "wb+") as out:
+        pickle.dump(all_runs, out)
+
+
 def save_hp_measures(hp: str, epochs):
-    fixed_params = hparams
+    fixed_params = hparams.copy()
     fixed_params.remove(hp)
     config_range = config_values_dict[hp]
 
@@ -111,7 +165,8 @@ def save_hp_measures(hp: str, epochs):
 
     for key, group in run_dict.items():
         # only use keys that have a value for every value of the hyperparameter
-        if len(group) != len(config_range[hp]):
+        bad_val = True in ["Infinity" in x.values for x in group]
+        if len(group) != len(config_range[hp]) or bad_val:
             print("Key: {}".format(key))
             continue
 
@@ -125,10 +180,10 @@ def save_hp_measures(hp: str, epochs):
                     measures = run.loc[epoch].copy(deep=True)
                 except KeyError:
                     measures = run.iloc[-1].copy(deep=True)
-                    print("Key: {}".format(key))
-                    print("HP: {}".format(measures["hp"]))
-                    print("Epoch: {}".format(epoch))
-                    print(run)
+                    # print("Key: {}".format(key))
+                    # print("HP: {}".format(measures["hp"]))
+                    # print("Epoch: {}".format(epoch))
+                    # print(run)
                     local_hp = measures["hp"]
                     measures[:] = np.nan
                     measures["hp"] = local_hp
@@ -204,6 +259,8 @@ def format_run(r, epochs):
 
 
 if __name__ == "__main__":
-    c = config_values_dict["lr"].copy()
-    c["lr"] = [0.001, 0.00316, 0.01, 0.05]
-    save_runs([1, 5, 10, 15, 20], c, "restricted_lr")
+    c = config_values_dict["batch_norm"].copy()
+    c["model_depth"] = [x/3 for x in c["model_depth"]]
+    # save_runs([1, 5, 10, 15, 20], c, "basic")
+    # save_hp_measures("lr", [1, 5, 10, 15, 20])
+    weighted_hparams_save_runs([1, 5, 10, 15, 20], c, "batch_norm")

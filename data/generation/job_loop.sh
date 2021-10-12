@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # run the application
-seeds='0 17 43'
-lrs='0.01'
-depth='2'
-batch_size='32'
+seeds='0'
+lrs='0.001'
+depth='2 3 4 5'
+batch_size='32 64 128 256'
 weight_decay='0'
-batch_norm='False'
+batch_norm='True'
 dropout_prob='0'
 
 for s in $seeds; do
