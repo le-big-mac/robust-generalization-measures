@@ -276,8 +276,8 @@ def get_all_measures(
     measures[CT.PACBAYES_MAG_FLATNESS] = torch.tensor(1 / mag_sigma ** 2)  # 61
 
     print("Training History-based Measures")
-    measures[CT.SOTL] = sum(train_history)
-    measures[CT.SOTL_10] = sum(train_history[-10::])
+    measures[CT.SOTL] = sum(train_history) if len(train_history) > 0 else torch.tensor(0)
+    measures[CT.SOTL_10] = sum(train_history[-10::]) if len(train_history) > 0 else torch.tensor(0)
 
     # Adjust for dataset size
     def adjust_measure(measure: CT, value: float) -> float:
