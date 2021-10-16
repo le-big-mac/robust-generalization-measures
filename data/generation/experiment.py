@@ -104,7 +104,7 @@ class Experiment:
 
             if self.state.global_batch in self.config.log_steps:
                 train_eval = self.evaluate_batch(DatasetSubsetType.TRAIN, True, batch_losses)
-                val_eval = self.evaluate(DatasetSubsetType.TEST)
+                val_eval = self.evaluate_batch(DatasetSubsetType.TEST)
                 train_eval.all_complexities[CT.VALIDATION_ACC] = val_eval.acc
                 self.logger.log_generalization_gap(self.state, train_eval.acc, val_eval.acc, train_eval.avg_loss,
                                                    val_eval.avg_loss, train_eval.all_complexities)

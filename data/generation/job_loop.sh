@@ -2,9 +2,9 @@
 
 # run the application
 seeds='0'
-lrs='0.001'
+lrs='0.01'
 depth='2 3 4 5'
-batch_size='32 64 128 256'
+batch_size='32'
 weight_decay='0'
 batch_norm='True'
 dropout_prob='0'

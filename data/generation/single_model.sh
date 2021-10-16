@@ -24,10 +24,10 @@ module load python3/anaconda
 source activate generalization
 
 seeds='0 17 43'
-lrs='0.001 0.00158 0.00316 0.00631 0.01 0.02 0.05 0.1'
+dp='0 0.05 0.1 0.15 0.2 0.25 0.3'
 
 for s in $seeds; do
-  for l in $lrs; do
-    python3 train.py --log_epoch_freq=5 --seed="$s" --lr="$l" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$7"
+  for d in $dp; do
+    python3 train.py --log_epoch_freq=5 --seed="$s" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$d"
   done
 done
