@@ -160,9 +160,6 @@ class Experiment:
             self.state.epoch = epoch
             self._train_epoch()
 
-            if self.state.global_batch > max(self.config.log_steps):
-                break
-
             is_evaluation_epoch = (
                         epoch == 1 or epoch == self.hparams.epochs or epoch % self.config.log_epoch_freq == 0)
             if is_evaluation_epoch or self.state.converged:
