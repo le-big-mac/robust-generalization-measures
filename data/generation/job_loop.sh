@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # run the application
-seeds='0'
+seeds='0 17 43'
 lrs='0.01'
 depth='2 3 4 5'
 batch_size='32'
