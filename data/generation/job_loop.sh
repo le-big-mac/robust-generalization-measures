@@ -7,7 +7,7 @@ depth='2 3 4 5'
 batch_size='32'
 weight_decay='0'
 batch_norm='True'
-dropout_prob='0.4'
+dropout_prob='0.5'
 
 for s in $seeds; do
   for lr in $lrs; do

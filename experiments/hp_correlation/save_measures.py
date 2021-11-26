@@ -19,7 +19,7 @@ config_values_dict = {"lr": {'lr': [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02
                                      'dropout_prob': [0], 'batch_norm': [True]},
                       "dropout_prob": {'lr': [0.01], 'batch_size': [32], 'model_depth': [2, 3, 4, 5],
                                        'seed': [0, 16, 17, 42, 43],
-                                       'dropout_prob': [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3], 'batch_norm': [True]},
+                                       'dropout_prob': [0, 0.1, 0.2, 0.3, 0.4, 0.5], 'batch_norm': [True]},
                       "batch_norm": {'lr': [0.00316, 0.00631, 0.01, 0.02], 'batch_size': [32],
                                      'model_depth': [3, 4, 5, 6], 'seed': [0, 17, 43], 'dropout_prob': [0],
                                      'batch_norm': [True, False]},
@@ -42,14 +42,9 @@ def save_runs(epochs, config_range, name):
             r.config["batch_norm"] = True if len(r.config["batch_norm_layers"]) > 0 else False
             r.config["model_depth"] = r.config["model_depth"]/3
 
-        if r.state == "running" \
-                or "batch_norm" not in r.config \
-                or r.config["batch_norm"] not in config_range["batch_norm"] \
-                or r.config["dropout_prob"] not in config_range["dropout_prob"] \
-                or r.config["lr"] not in config_range["lr"] \
-                or r.config["seed"] not in config_range["seed"] \
-                or r.config["batch_size"] not in config_range["batch_size"] \
-                or r.config["model_depth"] not in config_range["model_depth"]:
+        is_valid = all(r.config[key] in config_range[key] for key in hparams)
+
+        if r.state == "running" or "batch_norm" not in r.config or not is_valid:
             continue
 
         # some of the seeds got messed up in the dropout_prob experiments, fixing them here
@@ -85,14 +80,9 @@ def weighted_hparams_save_runs(epochs, config_range, name):
             r.config["batch_norm"] = True if len(r.config["batch_norm_layers"]) > 0 else False
             r.config["model_depth"] = r.config["model_depth"]/3
 
-        if r.state == "running" \
-                or "batch_norm" not in r.config \
-                or r.config["batch_norm"] not in config_range["batch_norm"] \
-                or r.config["dropout_prob"] not in config_range["dropout_prob"] \
-                or r.config["lr"] not in config_range["lr"] \
-                or r.config["seed"] not in config_range["seed"] \
-                or r.config["batch_size"] not in config_range["batch_size"] \
-                or r.config["model_depth"] not in config_range["model_depth"]:
+        is_valid = all(r.config[key] in config_range[key] for key in hparams)
+
+        if r.state == "running" or "batch_norm" not in r.config or not is_valid:
             continue
 
         # some of the seeds got messed up in the dropout_prob experiments, fixing them here
