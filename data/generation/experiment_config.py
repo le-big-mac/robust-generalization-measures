@@ -22,7 +22,8 @@ class DatasetSubsetType(IntEnum):
 
 class ComplexityType(Enum):
     # Measures from Fantastic Generalization Measures (equation numbers)
-    PARAMS = 20
+    PARAMS = 2
+    MARGIN = 21
     INVERSE_MARGIN = 22
     LOG_SPEC_INIT_MAIN = 29
     LOG_SPEC_ORIG_MAIN = 30

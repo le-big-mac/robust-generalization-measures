@@ -172,6 +172,7 @@ def get_all_measures(
 
     margin, margins_list = _margin(model, dataloader)
     margin = margin.abs()
+    measures[CT.MARGIN] = margin
     measures[CT.INVERSE_MARGIN] = torch.tensor(1, device=device) / margin ** 2  # 22
 
     print("(Norm & Margin)-Based Measures")
