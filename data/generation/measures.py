@@ -173,7 +173,6 @@ def get_all_measures(
     margin, margins_list = _margin(model, dataloader)
     margin = margin.abs()
     measures[CT.INVERSE_MARGIN] = torch.tensor(1, device=device) / margin ** 2  # 22
-    measures[CT.MARGINS] = margins_list
 
     print("(Norm & Margin)-Based Measures")
     fro_norms = torch.cat([p.norm('fro').unsqueeze(0) ** 2 for p in reshaped_weights])
@@ -288,4 +287,7 @@ def get_all_measures(
         else:
             return np.sqrt(value / m)
 
-    return {k: adjust_measure(k, v.item()) for k, v in measures.items()}
+    a = {k: adjust_measure(k, v.item()) for k, v in measures.items()}
+    a["margins"] = margins_list
+
+    return a
