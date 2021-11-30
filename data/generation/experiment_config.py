@@ -63,6 +63,8 @@ class ComplexityType(Enum):
     SOTL_10 = 151
     # Validation accuracy
     VALIDATION_ACC = 200
+    #
+    MARGINS = 250
 
 
 class OptimizerType(Enum):

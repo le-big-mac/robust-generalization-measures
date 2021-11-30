@@ -159,7 +159,7 @@ def get_all_measures(
     def _margin(
             model: ExperimentBaseModel,
             dataloader: DataLoader
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Tensor]:
         margins = []
         for data, target in dataloader:
             logits = model(data)
@@ -168,10 +168,12 @@ def get_all_measures(
             max_other_logit = logits.data.max(1).values  # get the index of the max logits
             margin = correct_logit - max_other_logit
             margins.append(margin)
-        return torch.cat(margins).kthvalue(m // 10)[0]
+        return torch.cat(margins).kthvalue(m // 10)[0], torch.flatten(torch.cat(margins))
 
-    margin = _margin(model, dataloader).abs()
+    margin, margins_list = _margin(model, dataloader)
+    margin = margin.abs()
     measures[CT.INVERSE_MARGIN] = torch.tensor(1, device=device) / margin ** 2  # 22
+    measures[CT.MARGINS] = margins_list
 
     print("(Norm & Margin)-Based Measures")
     fro_norms = torch.cat([p.norm('fro').unsqueeze(0) ** 2 for p in reshaped_weights])

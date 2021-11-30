@@ -42,7 +42,9 @@ class BaseLogger(object):
             {
                 'generalization/error': train_acc - val_acc,
                 'generalization/loss': train_loss - val_loss,
-                **{'complexity/{}'.format(k.name): v for k, v in all_complexities.items()}
+                'complexity/MARGINS': wandb.Histogram(all_complexities[ComplexityType.MARGINS]),
+                **{'complexity/{}'.format(k.name): all_complexities.get(k, None) for k in
+                   [x for x in list(ComplexityType) if x != ComplexityType.MARGINS]}
             })
 
     def log_epoch_end(self, hparams: HParams, state: State, datasubset: DatasetSubsetType, avg_loss: float,
