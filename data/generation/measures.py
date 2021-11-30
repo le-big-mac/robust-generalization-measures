@@ -168,7 +168,7 @@ def get_all_measures(
             max_other_logit = logits.data.max(1).values  # get the index of the max logits
             margin = correct_logit - max_other_logit
             margins.append(margin)
-        return torch.cat(margins).kthvalue(m // 10)[0], torch.flatten(torch.cat(margins))
+        return torch.cat(margins).kthvalue(m // 10)[0], torch.flatten(torch.cat(margins)).cpu().numpy()
 
     margin, margins_list = _margin(model, dataloader)
     margin = margin.abs()
