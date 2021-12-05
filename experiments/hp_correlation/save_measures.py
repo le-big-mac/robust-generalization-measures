@@ -43,9 +43,6 @@ def save_runs(name):
     for proj_name in project_names:
         runs = api.runs(proj_name)
         for r in runs:
-            if is_invalid_run(r):
-                continue
-
             if name == "batch_norm" and "batch_norm_layers" in r.config:
                 r.config["batch_norm"] = True if len(r.config["batch_norm_layers"]) > 0 else False
                 r.config["model_depth"] = r.config["model_depth"]/3
