@@ -8,14 +8,14 @@ from math import sqrt, log, log2, exp
 api = wandb.Api()
 project_names = ["rgm", "rgm_early_batches", "rgm_dropout"]
 params = ["lr", "batch_norm", "batch_size", "model_depth", "dropout_prob"]
-bad_runs = [(5, 0.3, 17), (5, 0.2, 17), (5, 0.15, 43), (5, 0.4, 43)]
-reseed = {(5, 0.3, 42): 17, (5, 0.2, 16): 17, (5, 0.15, 42): 43, (5, 0.4, 42): 43}
+bad_runs = [(5, 0.3, 17), (5, 0.2, 17), (5, 0.4, 43)]
+reseed = {(5, 0.3, 42): 17, (5, 0.2, 16): 17, (5, 0.4, 42): 43}
 config_values_dict = {"no_dropout": {"lr": [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02, 0.05, 0.1],
                                      "batch_size": [32, 64, 128, 256], "model_depth": [2, 3, 4, 5], "seed": [0, 17, 43],
                                      "dropout_prob": [0], "batch_norm": [True]},
-                      "only_dropout": {"lr": [0.01], "batch_size": [32], "model_depth": [2, 3, 4, 5],
-                                       "seed": [0, 16, 17, 42, 43], "dropout_prob": [0, 0.1, 0.2, 0.3, 0.4, 0.5],
-                                       "batch_norm": [True]},
+                      "dropout": {"lr": [0.01], "batch_size": [32], "model_depth": [2, 3, 4, 5],
+                                  "seed": [0, 17, 43], "dropout_prob": [0, 0.1, 0.2, 0.3, 0.4, 0.5],
+                                  "batch_norm": [True]},
                       "batch_norm": {"lr": [0.00316, 0.00631, 0.01, 0.02], "batch_size": [32],
                                      "model_depth": [1, 4/3, 5/3, 2], "seed": [0, 17, 43], "dropout_prob": [0],
                                      "batch_norm": [True, False]},
@@ -28,11 +28,6 @@ B = 115
 abs_max_neg_margin = 2.2  # 99th percentile of negative margin values
 
 
-def is_invalid_run(r):
-    return r.state == "running" or r.config["dropout_prob"] * 10 % 1 != 0 or r.config["dropout_prob"] > 0.5 or \
-           r.config["lr"] > 0.1 or r.config["lr"] < 0.001 or "batch_norm" not in r.config or not r.config["batch_norm"]
-
-
 def save_runs(name):
     config_range = config_values_dict[name]
 
@@ -42,10 +37,11 @@ def save_runs(name):
 
     for proj_name in project_names:
         runs = api.runs(proj_name)
+
         for r in runs:
             if name == "batch_norm" and "batch_norm_layers" in r.config:
                 r.config["batch_norm"] = True if len(r.config["batch_norm_layers"]) > 0 else False
-                r.config["model_depth"] = r.config["model_depth"]/3
+                r.config["model_depth"] = float(r.config["model_depth"])/3
             elif name == "batch_norm" or "batch_norm_layers" in r.config:
                 continue
 
@@ -53,7 +49,10 @@ def save_runs(name):
             replace_key = (r.config["model_depth"], r.config["dropout_prob"], r.config["seed"])
             if replace_key in bad_runs:
                 continue
-            seed = r.config["seed"] = r.config["seed"] if replace_key not in reseed else reseed[replace_key]
+            seed = r.config["seed"] if replace_key not in reseed else reseed[replace_key]
+
+            if not (all(r.config[hp] in config_range[hp] for hp in params) and seed in config_range["seed"]):
+                continue
 
             key = tuple(r.config[x] for x in params)
             if key not in all_runs:
@@ -63,7 +62,7 @@ def save_runs(name):
             run = next((x for x in all_runs[key] if x.seed == seed), None)
             if run is None and (*key, seed) not in skipped:
                 try:
-                    run = Run(r)
+                    run = Run(r, seed)
                     all_runs[key].append(run)
                     num_runs += 1
                 except ValueError:
@@ -79,13 +78,13 @@ def save_runs(name):
     print("Total number of runs: {}".format(num_runs))
     print("{} runs skipped for containing invalid values".format(len(skipped)))
 
-    with open("data/runs.pickle", "wb+") as out:
+    with open("data/separated/runs_{}.pickle".format(name), "wb+") as out:
         pickle.dump(all_runs, out)
 
 
 class Run:
-    def __init__(self, run):
-        self.seed = run.config["seed"]
+    def __init__(self, run, seed):
+        self.seed = seed
         self.config = {x: run.config[x] for x in params}
         self.steps_in_epoch = math.ceil(m / int(run.config["batch_size"]))
         self.step_measures = {}
@@ -111,8 +110,7 @@ class Run:
 
             if "complexity/SOTL" in e and step <= 1000 * self.steps_in_epoch - 1:
                 e = self.filter_measures(e)
-                if "Infinity" in e.values() or np.nan in e.values():
-                    print(e.values())
+                if np.nan in e.values():
                     raise ValueError("Run contains invalid measure values")
 
                 epoch = self.convert_step_to_epoch(step)
@@ -267,4 +265,5 @@ class Run:
 
 
 if __name__ == "__main__":
-    save_runs()
+    for t in config_values_dict:
+        save_runs(t)
