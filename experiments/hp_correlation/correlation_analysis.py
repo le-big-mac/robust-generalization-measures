@@ -1,7 +1,6 @@
 import pickle
 import numpy as np
 from save_measures import Run
-import sys
 
 stop_types = ["final", "best", "_99"]
 early_batches = (0, 1, 10, 100)

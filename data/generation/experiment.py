@@ -142,7 +142,7 @@ class Experiment:
                         if self.config.save_state_epochs is not None:
                             self.save_state(f'_ce_{passed_milestone}')
 
-            if self.state.converged:
+            if self.state.converged or self.state.global_batch > 100:
                 break
 
         self.train_history.append(sum(batch_losses)/len(batch_losses))
@@ -181,7 +181,7 @@ class Experiment:
             if is_save_epoch:
                 self.save_state(f"epoch_{epoch}")
 
-            if self.state.converged:
+            if self.state.converged or self.state.global_batch > 0:
                 print('Converged')
                 break
 
