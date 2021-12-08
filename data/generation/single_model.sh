@@ -23,4 +23,4 @@
 module load python3/anaconda
 source activate generalization
 
-python3 train.py --log_epoch_freq=5 --epochs=1000 --seed="$1" --lr="$2" --model_depth="$3" --batch_size="$4" --weight_decay="$5" --batch_norm="$6" --dropout_prob="$7"
+python3 train.py --log_epoch_freq=5 --epochs=1000 --seed="$1" --lr=0.01 --model_depth=5 --batch_size=32 --weight_decay=0 --batch_norm=True --dropout_prob="$7"
