@@ -1,5 +1,7 @@
 import pickle
 import numpy as np
+from save_measures import Run
+import sys
 
 stop_types = ["final", "best", "_99"]
 early_batches = (0, 1, 10, 100)
@@ -32,8 +34,6 @@ class RunPair:
             setattr(self, "early_batches_{}_error".format(st), {})
             setattr(self, "epochs_{}_error".format(st), {})
 
-        complexity_measures = self.r1.step_measures[0].keys()
-
         for st in stop_types:
             g1 = getattr(self.r1, "{}_test_acc".format(st))
             g2 = getattr(self.r2, "{}_test_acc".format(st))
@@ -41,7 +41,7 @@ class RunPair:
             for step in early_batches:
                 error_dict = getattr(self, "early_batches_{}_error".format(st))[step] = {}
 
-                for m in complexity_measures:
+                for m in self.r1.step_measures[step]:
                     c1 = self.r1.step_measures[step][m]
                     c2 = self.r1.step_measures[step][m]
 
@@ -53,7 +53,7 @@ class RunPair:
 
                 error_dict = getattr(self, "epochs_{}_error".format(st))[epoch] = {}
 
-                for m in complexity_measures:
+                for m in self.r1.epoch_measures[epoch]:
                     c1 = self.r1.epoch_measures[epoch][m]
                     c2 = self.r2.epoch_measures[epoch][m]
 
@@ -82,4 +82,10 @@ class PreComp:
 
 
 if __name__ == "__main__":
-    pass
+    with open("./data/new/runs_all.pickle", "rb") as f:
+        runs = pickle.load(f)
+
+    pre = PreComp(runs)
+
+    with open("./data/pre-comp/pre-comp_all.pickle") as f:
+        pickle.dump(pre, f)

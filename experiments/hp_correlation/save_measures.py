@@ -28,6 +28,30 @@ B = 115
 abs_max_neg_margin = 2.2  # 99th percentile of negative margin values
 
 
+def make_combined():
+    with open("./data/new/runs_no_dropout.pickle", "rb") as f:
+        rnd = pickle.load(f)
+    with open("./data/new/runs_dropout.pickle", "rb") as f:
+        rd = pickle.load(f)
+    with open("./data/new/runs_batch_norm.pickle", "rb") as f:
+        rb = pickle.load(f)
+
+    a = {(x, "nd"): rnd[x] for x in rnd}
+
+    for x in rd:
+        if x not in rnd:
+            a[(x, "d")] = rd[x]
+
+    with open("./data/new/runs_base.pickle", "wb+") as f:
+        pickle.dump(a, f)
+
+    for x in rb:
+        a[(x, "bn")] = rb[x]
+
+    with open("./data/new/runs_all.pickle", "wb+") as f:
+        pickle.dump(a, f)
+
+
 def save_runs(name):
     config_range = config_values_dict[name]
 
@@ -265,5 +289,6 @@ class Run:
 
 
 if __name__ == "__main__":
-    for t in config_values_dict:
-        save_runs(t)
+    # for t in config_values_dict:
+    #     save_runs(t)
+    make_combined()
