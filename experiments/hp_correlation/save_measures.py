@@ -78,7 +78,7 @@ def save_runs(name):
     print("Total number of runs: {}".format(num_runs))
     print("{} runs skipped for containing invalid values".format(len(skipped)))
 
-    with open("data/separated/runs_{}.pickle".format(name), "wb+") as out:
+    with open("data/new/runs_{}.pickle".format(name), "wb+") as out:
         pickle.dump(all_runs, out)
 
 
