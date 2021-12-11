@@ -4,6 +4,7 @@ import pickle
 import math
 from typing import Tuple
 from math import sqrt, log, log2, exp
+from enum import Enum
 
 api = wandb.Api()
 project_names = ["rgm", "rgm_early_batches", "rgm_dropout"]
@@ -28,36 +29,42 @@ B = 115
 abs_max_neg_margin = 2.2  # 99th percentile of negative margin values
 
 
-def make_combined():
-    with open("./data/new/runs_no_dropout.pickle", "rb") as f:
-        rnd = pickle.load(f)
-    with open("./data/new/runs_dropout.pickle", "rb") as f:
-        rd = pickle.load(f)
-    with open("./data/new/runs_batch_norm.pickle", "rb") as f:
-        rb = pickle.load(f)
+class ExperimentType(Enum):
+    NO_DROPOUT = 1
+    DROPOUT = 2
+    BATCH_NORM = 3
 
-    a = {(x, "nd"): rnd[x] for x in rnd}
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return TypeError
 
-    for x in rd:
-        if x not in rnd:
-            a[(x, "d")] = rd[x]
 
-    with open("./data/new/runs_base.pickle", "wb+") as f:
-        pickle.dump(a, f)
+def make_combined(runs_config_dict):
+    rd = runs_config_dict["dropout"]
+    base_runs = {(x, ExperimentType.DROPOUT): rd[x] for x in rd}
 
+    rnd = runs_config_dict["no_dropout"]
+    for x in rnd:
+        if x not in rd:
+            base_runs[(x, ExperimentType.NO_DROPOUT)] = rnd[x]
+
+    all_runs = base_runs.copy()
+
+    rb = runs_config_dict["batch_norm"]
     for x in rb:
-        a[(x, "bn")] = rb[x]
+        all_runs[(x, ExperimentType.BATCH_NORM)] = rb[x]
 
-    with open("./data/new/runs_all.pickle", "wb+") as f:
-        pickle.dump(a, f)
+    return all_runs, base_runs
 
 
-def save_runs(name):
+def make_runs(name):
     config_range = config_values_dict[name]
 
     all_runs = {}
     num_runs = 0
     skipped = set()
+    experiments = [ExperimentType[name.upper()]]
 
     for proj_name in project_names:
         runs = api.runs(proj_name)
@@ -82,11 +89,16 @@ def save_runs(name):
             if key not in all_runs:
                 all_runs[key] = []
 
+            if name == "dropout" and r.config["dropout_prob"] == 0:
+                experiments.append(ExperimentType.NO_DROPOUT)
+            elif name == "no_dropout" and r.config["lr"] == 0.01 and r.config["batch_size"] == 32:
+                experiments.append(ExperimentType.DROPOUT)
+
             # combine early batches and normal runs
             run = next((x for x in all_runs[key] if x.seed == seed), None)
             if run is None and (*key, seed) not in skipped:
                 try:
-                    run = Run(r, seed)
+                    run = Run(r, seed, tuple(experiments))
                     all_runs[key].append(run)
                     num_runs += 1
                 except ValueError:
@@ -102,13 +114,13 @@ def save_runs(name):
     print("Total number of runs: {}".format(num_runs))
     print("{} runs skipped for containing invalid values".format(len(skipped)))
 
-    with open("data/new/runs_{}.pickle".format(name), "wb+") as out:
-        pickle.dump(all_runs, out)
+    return all_runs
 
 
 class Run:
-    def __init__(self, run, seed):
+    def __init__(self, run, seed, experiments):
         self.seed = seed
+        self.experiments = experiments
         self.config = {x: run.config[x] for x in params}
         self.steps_in_epoch = math.ceil(m / int(run.config["batch_size"]))
         self.step_measures = {}
@@ -289,6 +301,13 @@ class Run:
 
 
 if __name__ == "__main__":
-    # for t in config_values_dict:
-    #     save_runs(t)
-    make_combined()
+    cleaned_runs = {x: make_runs(x) for x in config_values_dict}
+    for x in cleaned_runs:
+        with open("./data/new/runs_{}.pickle".format(x), "wb") as f:
+            pickle.dump(cleaned_runs[x], f)
+
+    all_runs, base_runs = make_combined(cleaned_runs)
+    with open("./data/new/runs_all.pickle", "wb") as f:
+        pickle.dump(all_runs, f)
+    with open("./data/new/runs_base.pickle", "wb") as f:
+        pickle.dump(base_runs, f)
