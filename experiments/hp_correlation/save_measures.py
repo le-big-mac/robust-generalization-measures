@@ -141,19 +141,35 @@ class Run:
         self.filter_steps(run.history(samples=10000, pandas=False))
 
     def filter_steps(self, run_steps):
+        temp_steps = {}
+
         for e in run_steps:
             step = e["_step"]
+            temp_steps[step] = e.copy()
+            epoch = self.convert_step_to_epoch(step)
 
             if "complexity/SOTL" in e and step <= 1000 * self.steps_in_epoch - 1:
                 e = self.filter_measures(e)
                 if np.nan in e.values():
                     raise ValueError("Run contains invalid measure values")
 
-                epoch = self.convert_step_to_epoch(step)
                 e["epoch"] = epoch
                 self.step_measures[step] = e
                 if epoch.is_integer():
-                    self.epoch_measures[int(epoch)] = e
+                    int_epoch = int(epoch)
+                    self.epoch_measures[int_epoch] = e
+
+                    sotl_ema = 0
+                    for i in range(1, int_epoch):
+                        sotl_ema += 0.9**(epoch - i) * float(temp_steps[self.convert_epoch_to_step(int_epoch - i)]["average_cross_entropy_over_epoch/train"])
+                    e["sotl-ema"] = sotl_ema + e["sotl-1"]
+
+                    default = {"average_cross_entropy_over_epoch/train": 0}
+                    e["sotl-2"] = e["sotl-1"] + float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 1), default)["average_cross_entropy_over_epoch/train"])
+                    e["sotl-3"] = e["sotl-2"] + float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 2), default)["average_cross_entropy_over_epoch/train"])
+                    e["sotl-5"] = e["sotl-3"] + \
+                                  float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 3), default)["average_cross_entropy_over_epoch/train"]) + \
+                                  float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 4), default)["average_cross_entropy_over_epoch/train"])
 
                 if step > self.final_step[0]:
                     self.final_step = (step, epoch)
@@ -161,12 +177,12 @@ class Run:
                     self.final_gen_error = e["accuracy/train"] - e["accuracy/test"]
 
             if e["accuracy/test"] > self.best_test_acc:
-                self.best_step = (step, self.convert_step_to_epoch(step))
+                self.best_step = (step, epoch)
                 self.best_test_acc = e["accuracy/test"]
                 self.best_gen_error = e["accuracy/train"] - e["accuracy/test"]
 
             if e["accuracy/test"] > 0.99 and step < self._99_step[0]:
-                self._99_step = (step, self.convert_step_to_epoch(step))
+                self._99_step = (step, epoch)
                 self._99_test_acc = e["accuracy/test"]
                 self._99_gen_error = e["accuracy/train"] - e["accuracy/test"]
 
@@ -298,6 +314,9 @@ class Run:
 
     def convert_step_to_epoch(self, step):
         return (step + 1) / self.steps_in_epoch
+
+    def convert_epoch_to_step(self, epoch):
+        return epoch * self.steps_in_epoch - 1
 
 
 if __name__ == "__main__":
