@@ -3,8 +3,8 @@ import numpy as np
 import pickle
 import math
 from typing import Tuple
-from math import sqrt, log, log2, exp
-from enum import Enum
+from math import sqrt, log, log2, exp, isclose
+from config import ExperimentType
 
 api = wandb.Api()
 project_names = ["rgm", "rgm_early_batches", "rgm_dropout"]
@@ -27,17 +27,6 @@ n = 32
 C = 10
 B = 115
 abs_max_neg_margin = 2.2  # 99th percentile of negative margin values
-
-
-class ExperimentType(Enum):
-    NO_DROPOUT = 1
-    DROPOUT = 2
-    BATCH_NORM = 3
-
-    def __lt__(self, other):
-        if self.__class__ is other.__class__:
-            return self.value < other.value
-        return TypeError
 
 
 def make_combined(runs_config_dict):
@@ -141,12 +130,14 @@ class Run:
         self.filter_steps(run.history(samples=10000, pandas=False))
 
     def filter_steps(self, run_steps):
-        temp_steps = {}
+        temp_epochs = {}
 
         for e in run_steps:
             step = e["_step"]
-            temp_steps[step] = e.copy()
             epoch = self.convert_step_to_epoch(step)
+            if isclose(epoch, round(epoch)):
+                epoch = round(epoch)
+                temp_epochs[epoch] = e.copy()
 
             if "complexity/SOTL" in e and step <= 1000 * self.steps_in_epoch - 1:
                 e = self.filter_measures(e)
@@ -155,21 +146,21 @@ class Run:
 
                 e["epoch"] = epoch
                 self.step_measures[step] = e
-                if epoch.is_integer():
-                    int_epoch = int(epoch)
-                    self.epoch_measures[int_epoch] = e
+                if type(epoch) is int:
+                    self.epoch_measures[epoch] = e
 
+                    sotl_history = []
                     sotl_ema = 0
-                    for i in range(1, int_epoch):
-                        sotl_ema += 0.9**(epoch - i) * float(temp_steps[self.convert_epoch_to_step(int_epoch - i)]["average_cross_entropy_over_epoch/train"])
-                    e["sotl-ema"] = sotl_ema + e["sotl-1"]
 
-                    default = {"average_cross_entropy_over_epoch/train": 0}
-                    e["sotl-2"] = e["sotl-1"] + float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 1), default)["average_cross_entropy_over_epoch/train"])
-                    e["sotl-3"] = e["sotl-2"] + float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 2), default)["average_cross_entropy_over_epoch/train"])
-                    e["sotl-5"] = e["sotl-3"] + \
-                                  float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 3), default)["average_cross_entropy_over_epoch/train"]) + \
-                                  float(temp_steps.get(self.convert_epoch_to_step(int_epoch - 4), default)["average_cross_entropy_over_epoch/train"])
+                    for i in range(1, int(epoch)+1):
+                        epoch_sotl_1 = temp_epochs[i]["average_cross_entropy_over_epoch/train"]
+                        sotl_history.append(epoch_sotl_1)
+                        sotl_ema += 0.9**(epoch - i) * epoch_sotl_1
+
+                    e["sotl-ema"] = sotl_ema
+                    e["sotl-2"] = sum(sotl_history[min(0, epoch - 2)::])
+                    e["sotl-3"] = sum(sotl_history[min(0, epoch - 3)::])
+                    e["sotl-5"] = sum(sotl_history[min(0, epoch - 5)::])
 
                 if step > self.final_step[0]:
                     self.final_step = (step, epoch)
@@ -237,6 +228,7 @@ class Run:
         inverse_margin = sqrt(m) * measures["inverse_margin"] if measures["accuracy/train"] >= 0.9 \
             else - sqrt(m) * measures["inverse_margin"]
         measures["margin"] = 1 / inverse_margin
+        measures["fro_over_spec_over_margin_fft"] = measures["fro_over_spec_fft"] * inverse_margin
 
         max_margin_over_margin = inverse_margin * abs_max_neg_margin
         try:
@@ -290,6 +282,8 @@ class Run:
                     old_meas = measures[m_name.format("_margin")]
                     measures[m_name.format("_" + k)] = old_meas * sqrt(mgn)/inverse_margin
 
+                measures["fro_over_spec_over_{}_fft".format(k)] = measures["fro_over_spec_fft"] * sqrt(mgn)
+
     def spectral_complexity(self, measures):
         depth_const = 84 * B * (5 * self.config["model_depth"] * sqrt(200) + sqrt(10)) + \
                       sqrt(log(4 * n**2 * (3 * self.config["model_depth"] + 1)))
@@ -322,11 +316,11 @@ class Run:
 if __name__ == "__main__":
     cleaned_runs = {x: make_runs(x) for x in config_values_dict}
     for x in cleaned_runs:
-        with open("./data/new/runs_{}.pickle".format(x), "wb") as f:
+        with open("./data/runs/{}.pickle".format(x), "wb") as f:
             pickle.dump(cleaned_runs[x], f)
 
     all_runs, base_runs = make_combined(cleaned_runs)
-    with open("./data/new/runs_all.pickle", "wb") as f:
+    with open("./data/runs/all.pickle", "wb") as f:
         pickle.dump(all_runs, f)
-    with open("./data/new/runs_base.pickle", "wb") as f:
+    with open("./data/runs/base.pickle", "wb") as f:
         pickle.dump(base_runs, f)

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import copy
 import sys
-from correlation_analysis import results_order, load_correlation_dict, dd_list
+from precomputation import results_order, load_correlation_dict, dd_list
 import os
 import pickle
 
