@@ -4,11 +4,10 @@ import pickle
 import math
 from typing import Tuple
 from math import sqrt, log, log2, exp, isclose
-from config import ExperimentType
+from config import ExperimentType, early_batches, params
 
 api = wandb.Api()
 project_names = ["rgm", "rgm_early_batches", "rgm_dropout"]
-params = ["lr", "batch_norm", "batch_size", "model_depth", "dropout_prob"]
 bad_runs = [(5, 0.3, 17), (5, 0.2, 17), (5, 0.4, 43)]
 reseed = {(5, 0.3, 42): 17, (5, 0.2, 16): 17, (5, 0.4, 42): 43}
 config_values_dict = {"no_dropout": {"lr": [0.001, 0.00158, 0.00316, 0.00631, 0.01, 0.02, 0.05, 0.1],
@@ -113,7 +112,7 @@ class Run:
         self.config = {x: run.config[x] for x in params}
         self.steps_in_epoch = math.ceil(m / int(run.config["batch_size"]))
         self.step_measures = {}
-        self.epoch_measures = {}
+        self.measures = {}
 
         self.final_step: Tuple[int, int] = (-1, -1)
         self.final_test_acc = -1
@@ -146,8 +145,11 @@ class Run:
 
                 e["epoch"] = epoch
                 self.step_measures[step] = e
-                if type(epoch) is int:
-                    self.epoch_measures[epoch] = e
+
+                if step in early_batches:
+                    self.measures[step / 1000] = e
+                elif type(epoch) is int:
+                    self.measures[epoch] = e
 
                     sotl_history = []
                     sotl_ema = 0
@@ -316,11 +318,11 @@ class Run:
 if __name__ == "__main__":
     cleaned_runs = {x: make_runs(x) for x in config_values_dict}
     for x in cleaned_runs:
-        with open("./data/runs/{}.pickle".format(x), "wb") as f:
+        with open("./data.nosync/runs/{}.pickle".format(x), "wb+") as f:
             pickle.dump(cleaned_runs[x], f)
 
     all_runs, base_runs = make_combined(cleaned_runs)
-    with open("./data/runs/all.pickle", "wb") as f:
+    with open("./data.nosync/runs/all.pickle", "wb+") as f:
         pickle.dump(all_runs, f)
-    with open("./data/runs/base.pickle", "wb") as f:
+    with open("./data.nosync/runs/base.pickle", "wb+") as f:
         pickle.dump(base_runs, f)

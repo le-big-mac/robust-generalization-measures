@@ -3,10 +3,7 @@ import numpy as np
 from save_measures import Run, ExperimentType
 from tqdm import tqdm
 from itertools import islice
-from config import measure_types
-
-stop_types = ["final", "best", "_99"]
-early_batches = (0, 1, 10, 100)
+from config import measure_types, stop_types
 
 
 def take(n, iterable):
@@ -16,7 +13,7 @@ def take(n, iterable):
 
 def sign_error(c1, c2, g1, g2):
     sign = np.sign(c1 - c2) * np.sign(g1 - g2)
-    return 0 if sign is np.nan else sign
+    return 0 if np.isnan(sign) else sign
 
 
 def hoeffding_weight(delta_gen, m=10000):
@@ -36,8 +33,7 @@ class RunPair:
         self.measure_type = measure_type
         self.weight = hoeffding_weight(getattr(run1, "{}_test_acc".format(self.stop_type)) -
                                        getattr(run2, "{}_test_acc".format(self.stop_type)))
-        self.early_batch_errors = {}
-        self.epoch_errors = {}
+        self.errors = {}
 
         if not (stop_type == "_99" and (run1._99_step[0] is np.inf or run2._99_step[0] is np.inf)):
             self.setup_errors(run1, run2)
@@ -46,30 +42,16 @@ class RunPair:
         g1 = getattr(run1, "{}_test_acc".format(self.stop_type))
         g2 = getattr(run2, "{}_test_acc".format(self.stop_type))
 
-        if ExperimentType.BATCH_NORM not in run1.experiments \
-                and ExperimentType.BATCH_NORM not in run2.experiments:
-            for step in early_batches:
-                error_dict = self.early_batch_errors[step] = {}
-
-                for m in measure_types[self.measure_type]:
-                    try:
-                        c1 = run1.step_measures[step][m]
-                        c2 = run1.step_measures[step][m]
-                    except KeyError:
-                        continue
-
-                    error_dict[m] = sign_error(c1, c2, g1, g2)
-
-        for epoch in run1.epoch_measures:
-            if epoch not in run2.epoch_measures:
+        for step in run1.measures:
+            if step not in run2.measures:
                 continue
 
-            error_dict = self.epoch_errors[epoch] = {}
+            error_dict = self.errors[step] = {}
 
             for m in measure_types[self.measure_type]:
                 try:
-                    c1 = run1.epoch_measures[epoch][m]
-                    c2 = run2.epoch_measures[epoch][m]
+                    c1 = run1.measures[step][m]
+                    c2 = run2.measures[step][m]
                 except KeyError:
                     continue
 
@@ -101,11 +83,11 @@ if __name__ == "__main__":
     with open("./data.nosync/runs/all.pickle", "rb") as f:
         runs = pickle.load(f)
 
-    for stop in ["best", "_99"]:
+    for stop in stop_types:
         for meas in measure_types:
             pairs = make_pairs(runs, meas, stop)
 
-            with open("./data.nosync/pre-comp/{}-{}.pickle".format(meas, stop), "wb+") as f:
+            with open("./data.nosync/pre-comp-pairs/{}-{}.pickle".format(meas, stop), "wb+") as f:
                 pickle.dump(pairs, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             del pairs

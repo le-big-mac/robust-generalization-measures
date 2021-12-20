@@ -1,5 +1,9 @@
 from enum import Enum
 
+params = ["lr", "batch_norm", "batch_size", "model_depth", "dropout_prob"]
+early_batches = (0, 1, 10, 100)
+stop_types = ["final", "best", "_99"]
+
 
 class ExperimentType(Enum):
     NO_DROPOUT = 1

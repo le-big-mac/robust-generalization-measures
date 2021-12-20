@@ -1,9 +1,23 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import copy
 import sys
-from precomputation import results_order, load_correlation_dict, dd_list
 import os
 import pickle
+
+
+def correlation_envelope(correlations, measure, steps):
+    x = steps
+    # mean
+    # y = [np.mean([x[0] for x in correlations[s][measure]]) for s in steps]
+    # median
+    y = [np.median([x[0] for x in correlations[s][measure]]) for s in steps]
+    upper = [np.percentile([x[0] for x in correlations[s][measure]], 25) for s in steps]
+    lower = [np.percentile([x[0] for x in correlations[s][measure]], 75) for s in steps]
+
+    plt.plot(x, y, "k-")
+    plt.fill_between(x, lower, upper)
+    plt.show()
 
 
 def save_fig(correlation_dict, name, plot_measures, error_type, min_runs=20):
@@ -81,4 +95,4 @@ def correlations_box_plot(hp: str, corr_type: str, min_corrs_epoch: int = 0, fil
         plt.close()
 
 
-correlations_box_plot("batch_size", "acc", 0, True, 0.99)
+# correlations_box_plot("batch_size", "acc", 0, True, 0.99)
