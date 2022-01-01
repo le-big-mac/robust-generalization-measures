@@ -34,6 +34,7 @@ class RunPair:
         self.weight = hoeffding_weight(getattr(run1, "{}_test_acc".format(self.stop_type)) -
                                        getattr(run2, "{}_test_acc".format(self.stop_type)))
         self.errors = {}
+        self.future_errors = {}
 
         if not (stop_type == "_99" and (run1._99_step[0] is np.inf or run2._99_step[0] is np.inf)):
             self.setup_errors(run1, run2)

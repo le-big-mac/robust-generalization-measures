@@ -9,14 +9,19 @@ import pickle
 def correlation_envelope(correlations, measure, steps):
     x = steps
     # mean
-    # y = [np.mean([x[0] for x in correlations[s][measure]]) for s in steps]
+    y = [np.mean([x[0] for x in correlations[s][measure]]) for s in steps]
+    error = [np.std([x[0] for x in correlations[s][measure]]) for s in steps]
     # median
-    y = [np.median([x[0] for x in correlations[s][measure]]) for s in steps]
-    upper = [np.percentile([x[0] for x in correlations[s][measure]], 25) for s in steps]
-    lower = [np.percentile([x[0] for x in correlations[s][measure]], 75) for s in steps]
+    # y = [np.median([x[0] for x in correlations[s][measure]]) for s in steps]
+    # upper = [np.percentile([x[0] for x in correlations[s][measure]], 25) for s in steps]
+    # lower = [np.percentile([x[0] for x in correlations[s][measure]], 75) for s in steps]
 
     plt.plot(x, y, "k-")
-    plt.fill_between(x, lower, upper)
+    plt.title(measure)
+    # mean
+    # plt.fill_between(x, [max(y[i]-error[i], -1) for i in range(len(y))], [min(y[i]+error[i], 1) for i in range(len(y))])
+    # median
+    # plt.fill_between(x, lower, upper)
     plt.show()
 
 

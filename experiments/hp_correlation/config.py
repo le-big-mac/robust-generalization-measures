@@ -74,20 +74,20 @@ measure_types = {
             "spec_init_shifted_margin",
             "spec_orig_shifted_margin"
         ]),
-    "pos_margin":
-        tuple([
-            "pos_margin",
-            "fro_over_spec_over_pos_margin_fft",
-            "log_prod_of_fro_over_pos_margin",
-            "log_prod_of_spec_over_pos_margin_fft",
-            "log_spec_init_main_pos_margin_fft",
-            "log_spec_orig_main_pos_margin_fft",
-            "log_sum_of_fro_over_pos_margin",
-            "log_sum_of_spec_over_pos_margin_fft",
-            "path_norm_over_pos_margin",
-            "spec_init_pos_margin",
-            "spec_orig_pos_margin"
-        ]),
+    # "pos_margin":
+    #     tuple([
+    #         "pos_margin",
+    #         "fro_over_spec_over_pos_margin_fft",
+    #         "log_prod_of_fro_over_pos_margin",
+    #         "log_prod_of_spec_over_pos_margin_fft",
+    #         "log_spec_init_main_pos_margin_fft",
+    #         "log_spec_orig_main_pos_margin_fft",
+    #         "log_sum_of_fro_over_pos_margin",
+    #         "log_sum_of_spec_over_pos_margin_fft",
+    #         "path_norm_over_pos_margin",
+    #         "spec_init_pos_margin",
+    #         "spec_orig_pos_margin"
+    #     ]),
     "pac_bayes":
         tuple([
             "pacbayes_flatness", 

@@ -12,7 +12,7 @@ def differ_in_only(config_pair, hp):
     for j in range(len(params)):
         if j == i:
             continue
-        truth = truth and config_pair[0][j] == config_pair[0][i]
+        truth = truth and config_pair[0][0][j] == config_pair[1][0][j]
 
     return truth
 
@@ -65,7 +65,7 @@ def initialization_correlation(pair_corrs):
 
 def overall_correlation(pair_corrs):
     def condition(hp_pair):
-        return True
+        return hp_pair[0][1] != ExperimentType.BATCH_NORM and hp_pair[1][1] != ExperimentType.BATCH_NORM
 
     return conditional_correlation(pair_corrs, condition)
 
