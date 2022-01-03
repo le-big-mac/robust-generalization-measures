@@ -2,13 +2,8 @@ import pickle
 import numpy as np
 from save_measures import Run, ExperimentType
 from tqdm import tqdm
-from itertools import islice
 from config import measure_types, stop_types
-
-
-def take(n, iterable):
-    """Return first n items of the iterable as a list"""
-    return list(islice(iterable, n))
+from math import ceil
 
 
 def sign_error(c1, c2, g1, g2):
@@ -34,29 +29,64 @@ class RunPair:
         self.weight = hoeffding_weight(getattr(run1, "{}_test_acc".format(self.stop_type)) -
                                        getattr(run2, "{}_test_acc".format(self.stop_type)))
         self.errors = {}
-        self.future_errors = {}
 
         if not (stop_type == "_99" and (run1._99_step[0] is np.inf or run2._99_step[0] is np.inf)):
             self.setup_errors(run1, run2)
 
     def setup_errors(self, run1, run2):
-        g1 = getattr(run1, "{}_test_acc".format(self.stop_type))
-        g2 = getattr(run2, "{}_test_acc".format(self.stop_type))
+        min_max = min(max(run1.measures), max(run2.measures))
+        max_max = max(max(run1.measures), max(run2.measures))
+        max_run = run1 if max(run1.measures) >= max(run2.measures) else run2
+        min_run = run2 if max_run == run1 else run1
 
-        for step in run1.measures:
-            if step not in run2.measures:
+        g_max = getattr(max_run, "{}_test_acc".format(self.stop_type))
+        g_min = getattr(min_run, "{}_test_acc".format(self.stop_type))
+
+        for step in max_run.measures:
+            if step > 300:
                 continue
 
-            error_dict = self.errors[step] = {}
+            if step in min_run.measures:
+                error_dict = self.errors[step] = {}
 
-            for m in measure_types[self.measure_type]:
-                try:
-                    c1 = run1.measures[step][m]
-                    c2 = run2.measures[step][m]
-                except KeyError:
-                    continue
+                for m in measure_types[self.measure_type]:
+                    try:
+                        c_max = max_run.measures[step][m]
+                        c_min = min_run.measures[step][m]
+                    except KeyError:
+                        continue
 
-                error_dict[m] = sign_error(c1, c2, g1, g2)
+                    error_dict[m] = sign_error(c_max, c_min, g_max, g_min)
+
+            elif step > min_max:
+                error_dict = self.errors[step] = {}
+
+                for m in measure_types[self.measure_type]:
+                    try:
+                        c_max = max_run.measures[step][m]
+                        c_min = min_run.measures[min_max][m]
+                    except KeyError:
+                        continue
+                    error_dict[m] = sign_error(c_max, c_min, g_max, g_min)
+
+    # def setup_errors(self, run1, run2):
+    #     g1 = getattr(run1, "{}_test_acc".format(self.stop_type))
+    #     g2 = getattr(run2, "{}_test_acc".format(self.stop_type))
+    #
+    #     for step in run1.measures:
+    #         if step not in run2.measures:
+    #             continue
+    #
+    #         error_dict = self.errors[step] = {}
+    #
+    #         for m in measure_types[self.measure_type]:
+    #             try:
+    #                 c1 = run1.measures[step][m]
+    #                 c2 = run2.measures[step][m]
+    #             except KeyError:
+    #                 continue
+    #
+    #             error_dict[m] = sign_error(c1, c2, g1, g2)
 
 
 def make_pairs(runs, measure_type, stop_type):
@@ -88,7 +118,7 @@ if __name__ == "__main__":
         for meas in measure_types:
             pairs = make_pairs(runs, meas, stop)
 
-            with open("./data.nosync/pre-comp-pairs/{}-{}.pickle".format(meas, stop), "wb+") as f:
+            with open("./data.nosync/pre-comp-pairs-future/{}-{}.pickle".format(meas, stop), "wb+") as f:
                 pickle.dump(pairs, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             del pairs
