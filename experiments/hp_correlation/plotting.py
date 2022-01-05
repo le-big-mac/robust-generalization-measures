@@ -4,6 +4,51 @@ import copy
 import sys
 import os
 import pickle
+from correlations import overall_correlation
+
+
+def overall_corr_figs():
+    steps = [0.001, 0.01, 0.1, 1] + list(range(5, 301, 5))
+    corrs = {}
+    corrs["test_acc"] = []
+
+    for a in ["margin", "exponential_margin", "normalized_exponential_margin", "shifted_margin",
+              "pac_bayes", "vc_dim", "norms", "optimisation"]:
+        with open("./data.nosync/pre-comp-correlations-future/{}-best.pickle".format(a), "rb") as f:
+            pair_corrs = pickle.load(f)
+
+        corrs[a] = []
+        overall_corrs = overall_correlation(pair_corrs)
+
+        for s in steps:
+            max_corr = 0
+            for x in overall_corrs["weighted"][s]:
+                c = abs(np.mean([b[0] for b in overall_corrs["weighted"][s][x] if b[2] > 1]))
+
+                if x == "accuracy/test":
+                    corrs["test_acc"].append(c)
+                elif c > max_corr:
+                    max_corr = c
+
+            corrs[a].append(max_corr)
+
+    margin = []
+    for i in range(len(steps)):
+        margin.append(max(corrs["margin"][i], corrs["exponential_margin"][i],
+                          corrs["normalized_exponential_margin"][i], corrs["shifted_margin"][i]))
+
+    corrs_new = {k: v for k, v in corrs.items() if k in ["pac_bayes", "vc_dim", "norms", "optimisation", "test_acc"]}
+    corrs_new["margin"] = margin
+
+    plt.figure(figsize=(10, 7))
+    for x in corrs_new:
+        plt.plot(steps[:5], corrs_new[x][:5], label=x)
+
+    plt.ylim([0, 0.7])
+    plt.xlabel("epoch")
+    plt.ylabel("absolute correlation")
+    plt.legend()
+    plt.show()
 
 
 def correlation_envelope(correlations, measure, steps):
@@ -23,81 +68,3 @@ def correlation_envelope(correlations, measure, steps):
     # median
     # plt.fill_between(x, lower, upper)
     plt.show()
-
-
-def save_fig(correlation_dict, name, plot_measures, error_type, min_runs=20):
-    plt.figure(figsize=(20, 15), dpi=300)
-    for k, epochs in correlation_dict.items():
-        if k.lower()[11:] not in plot_measures:
-            continue
-        epochs = copy.deepcopy(epochs)
-        epochs.pop("final")
-        l = sorted(epochs.items())
-        x, corrs = zip(*l)
-        indices = [i for i, j in enumerate(corrs) if len(j) >= min_runs]
-        x = [x[i] for i in indices]
-        corrs = [corrs[i] for i in indices]
-        y = []
-        if error_type == "avg":
-            y = [sum(c)/len(c) for c in corrs]
-        elif error_type == "min":
-            y = [min(c, key=abs) for c in corrs]
-        plt.plot(x, y, label=(k[11:] if k.lower()[:10] == "complexity" else k))
-    plt.legend(bbox_to_anchor=(1.05, 1.0))
-    plt.tight_layout()
-    plt.savefig('figures/{}_{}_best'.format(name, min_runs))
-
-
-def box_plot(measure: str, epoch_correlations_dict, min_corrs_epoch: int):
-    corrs_list = []
-    labels = []
-
-    for epoch, corrs in sorted(epoch_correlations_dict.items()):
-        if len(corrs) < min_corrs_epoch:
-            continue
-
-        corrs_list.append(corrs)
-        epoch = "final" if epoch == sys.maxsize else epoch
-        labels.append(epoch)
-
-    fig, ax = plt.subplots()
-    ax.set_title(measure)
-    ax.boxplot(corrs_list, labels=labels)
-
-    return ax
-
-
-def get_figs_dir(hp: str, corr_type: str, min_corrs_epoch: int = 0, fill_nan_epochs: bool = True,
-                 filter_train_acc: float = 0):
-    parent_path = './results/{}/min_corrs_{}-fill_nan_epochs_{}-min_acc_{}-figs'.format(
-        hp, min_corrs_epoch, fill_nan_epochs, filter_train_acc)
-    dir_path = '{}/{}'.format(parent_path, corr_type)
-
-    if not os.path.exists(parent_path):
-        os.mkdir(parent_path)
-        os.mkdir(dir_path)
-    elif not os.path.exists(dir_path):
-        os.mkdir(dir_path)
-
-    return dir_path
-
-
-def correlations_box_plot(hp: str, corr_type: str, min_corrs_epoch: int = 0, fill_nan_epochs: bool = True,
-                          filter_train_acc: float = 0):
-    correlation_dict = load_correlation_dict(hp, corr_type, fill_nan_epochs, filter_train_acc)
-
-    plot_order = results_order[:]
-    plot_order.append(hp)
-
-    min_corrs_epoch = len(correlation_dict[hp][1]) if min_corrs_epoch == 0 else min_corrs_epoch
-
-    dir_path = get_figs_dir(hp, corr_type, min_corrs_epoch, fill_nan_epochs, filter_train_acc)
-
-    for k in plot_order:
-        measure_epoch_corrs = correlation_dict[k]
-        ax = box_plot(k, measure_epoch_corrs, min_corrs_epoch)
-        ax.figure.savefig('{}/{}.pdf'.format(dir_path, k.replace('/', '_')))
-        plt.close()
-
-
-# correlations_box_plot("batch_size", "acc", 0, True, 0.99)
