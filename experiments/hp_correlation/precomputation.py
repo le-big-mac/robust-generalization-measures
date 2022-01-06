@@ -1,12 +1,11 @@
 import pickle
 import numpy as np
-from save_measures import Run, ExperimentType
 from tqdm import tqdm
-from config import measure_types, stop_types
+from config import measure_types, ExperimentType
 from math import ceil
 
 
-def sign_error(c1, c2, g1, g2):
+def sign_correlation(c1, c2, g1, g2):
     sign = np.sign(c1 - c2) * np.sign(g1 - g2)
     return 0 if np.isnan(sign) else sign
 
@@ -28,12 +27,12 @@ class RunPair:
         self.measure_type = measure_type
         self.weight = hoeffding_weight(getattr(run1, "{}_test_acc".format(self.stop_type)) -
                                        getattr(run2, "{}_test_acc".format(self.stop_type)))
-        self.errors = {}
+        self.corrs = {}
 
         if not (stop_type == "_99" and (run1._99_step[0] is np.inf or run2._99_step[0] is np.inf)):
-            self.setup_errors(run1, run2)
+            self.setup_corrs(run1, run2)
 
-    def setup_errors(self, run1, run2):
+    def setup_corrs(self, run1, run2):
         min_max = min(max(run1.measures), max(run2.measures))
         max_max = max(max(run1.measures), max(run2.measures))
         max_run = run1 if max(run1.measures) >= max(run2.measures) else run2
@@ -47,7 +46,7 @@ class RunPair:
                 continue
 
             if step in min_run.measures:
-                error_dict = self.errors[step] = {}
+                corr_dict = self.corrs[step] = {}
 
                 for m in measure_types[self.measure_type]:
                     try:
@@ -56,10 +55,10 @@ class RunPair:
                     except KeyError:
                         continue
 
-                    error_dict[m] = sign_error(c_max, c_min, g_max, g_min)
+                    corr_dict[m] = sign_correlation(c_max, c_min, g_max, g_min)
 
             elif step > min_max:
-                error_dict = self.errors[step] = {}
+                corr_dict = self.corrs[step] = {}
 
                 for m in measure_types[self.measure_type]:
                     try:
@@ -67,26 +66,10 @@ class RunPair:
                         c_min = min_run.measures[min_max][m]
                     except KeyError:
                         continue
-                    error_dict[m] = sign_error(c_max, c_min, g_max, g_min)
+                    corr_dict[m] = sign_correlation(c_max, c_min, g_max, g_min)
 
-    # def setup_errors(self, run1, run2):
-    #     g1 = getattr(run1, "{}_test_acc".format(self.stop_type))
-    #     g2 = getattr(run2, "{}_test_acc".format(self.stop_type))
-    #
-    #     for step in run1.measures:
-    #         if step not in run2.measures:
-    #             continue
-    #
-    #         error_dict = self.errors[step] = {}
-    #
-    #         for m in measure_types[self.measure_type]:
-    #             try:
-    #                 c1 = run1.measures[step][m]
-    #                 c2 = run2.measures[step][m]
-    #             except KeyError:
-    #                 continue
-    #
-    #             error_dict[m] = sign_error(c1, c2, g1, g2)
+        for step in range(5 * ceil((max_max+1)/5), 301, 5):
+            self.corrs[step] = self.corrs[max_max]
 
 
 def make_pairs(runs, measure_type, stop_type):
@@ -94,31 +77,29 @@ def make_pairs(runs, measure_type, stop_type):
 
     for hps_1 in tqdm(runs):
         for hps_2 in runs:
-            if hps_2 < hps_1:
+            if hps_2 < hps_1 or hps_2 == hps_1:
                 continue  # don't double count weights
 
             key = (hps_1, hps_2)
             run_pairs[key] = {}
 
-            runs_1 = runs[hps_1]
-            runs_2 = runs[hps_2]
+            r1 = runs[hps_1]
+            r2 = runs[hps_2]
 
-            for r1 in runs_1:
-                for r2 in runs_2:
-                    run_pairs[key][(r1.seed, r2.seed)] = RunPair(r1, r2, measure_type, stop_type)
+            run_pairs[key] = RunPair(r1, r2, measure_type, stop_type)
 
     return run_pairs
 
 
 if __name__ == "__main__":
-    with open("./data.nosync/runs/all.pickle", "rb") as f:
-        runs = pickle.load(f)
+    for seed in [0, 17, 43]:
+        with open("./new_data.nosync/runs/all-{}.pickle".format(seed), "rb") as f:
+            runs = pickle.load(f)
 
-    for stop in stop_types:
         for meas in measure_types:
-            pairs = make_pairs(runs, meas, stop)
+            pairs = make_pairs(runs, meas, "best")
 
-            with open("./data.nosync/pre-comp-pairs-future/{}-{}.pickle".format(meas, stop), "wb+") as f:
+            with open("./new_data.nosync/pre-comp/{}-{}-{}.pickle".format(meas, "best", seed), "wb+") as f:
                 pickle.dump(pairs, f, protocol=pickle.HIGHEST_PROTOCOL)
 
             del pairs

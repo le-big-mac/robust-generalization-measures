@@ -30,29 +30,28 @@ abs_max_neg_margin = 2.2  # 99th percentile of negative margin values
 
 def make_combined(runs_config_dict):
     rd = runs_config_dict["dropout"]
-    base_runs = {(x, ExperimentType.DROPOUT): rd[x] for x in rd}
+    base_runs = {(x, r.experiments): rd[x] for x, r in rd.items()}
 
     rnd = runs_config_dict["no_dropout"]
-    for x in rnd:
+    for x, r in rnd.items():
         if x not in rd:
-            base_runs[(x, ExperimentType.NO_DROPOUT)] = rnd[x]
+            base_runs[(x, r.experiments)] = rnd[x]
 
     all_runs = base_runs.copy()
 
     rb = runs_config_dict["batch_norm"]
-    for x in rb:
-        all_runs[(x, ExperimentType.BATCH_NORM)] = rb[x]
+    for x, r in rb.items():
+        all_runs[(x, r.experiments)] = r
 
     return all_runs, base_runs
 
 
-def make_runs(name):
+def make_runs(name, req_seed):
     config_range = config_values_dict[name]
 
     all_runs = {}
     num_runs = 0
     skipped = set()
-    experiments = [ExperimentType[name.upper()]]
 
     for proj_name in project_names:
         runs = api.runs(proj_name)
@@ -70,24 +69,23 @@ def make_runs(name):
                 continue
             seed = r.config["seed"] if replace_key not in reseed else reseed[replace_key]
 
-            if not (all(r.config[hp] in config_range[hp] for hp in params) and seed in config_range["seed"]):
+            if not (all(r.config[hp] in config_range[hp] for hp in params) and seed == req_seed):
                 continue
 
             key = tuple(r.config[x] for x in params)
-            if key not in all_runs:
-                all_runs[key] = []
 
+            experiments = [ExperimentType[name.upper()]]
             if name == "dropout" and r.config["dropout_prob"] == 0:
                 experiments.append(ExperimentType.NO_DROPOUT)
             elif name == "no_dropout" and r.config["lr"] == 0.01 and r.config["batch_size"] == 32:
                 experiments.append(ExperimentType.DROPOUT)
 
             # combine early batches and normal runs
-            run = next((x for x in all_runs[key] if x.seed == seed), None)
+            run = all_runs.get(key, None)
             if run is None and (*key, seed) not in skipped:
                 try:
                     run = Run(r, seed, tuple(experiments))
-                    all_runs[key].append(run)
+                    all_runs[key] = run
                     num_runs += 1
                 except ValueError:
                     skipped.add((*key, seed))
@@ -96,7 +94,7 @@ def make_runs(name):
                     run.filter_steps(r.history(samples=10000, pandas=False))
                 except ValueError:
                     skipped.add((*key, seed))
-                    all_runs[key].remove(run)
+                    all_runs.pop(key)
                     num_runs -= 1
 
     print("Total number of runs: {}".format(num_runs))
@@ -148,7 +146,7 @@ class Run:
 
                 if step in early_batches:
                     self.measures[step / 1000] = e
-                elif type(epoch) is int:
+                elif type(epoch) is int and (epoch % 5 == 0 or epoch == 1):
                     self.measures[epoch] = e
 
                     sotl_history = []
@@ -179,6 +177,14 @@ class Run:
                 self._99_test_acc = e["accuracy/test"]
                 self._99_gen_error = e["accuracy/train"] - e["accuracy/test"]
 
+        oracle_1 = self.best_test_acc + np.random.normal(0, 0.01)
+        oracle_2 = self.best_test_acc + np.random.normal(0, 0.02)
+        oracle_5 = self.best_test_acc + np.random.normal(0, 0.05)
+        for step, measures in self.measures.items():
+            measures["oracle 0.01"] = oracle_1
+            measures["oracle 0.02"] = oracle_2
+            measures["oracle 0.05"] = oracle_5
+
     def filter_measures(self, measures):
         save_cols = ["accuracy/train", "accuracy/test", "cross_entropy_epoch_end/train", "cross_entropy_epoch_end/test",
                      "_step"]
@@ -193,6 +199,9 @@ class Run:
                 filtered_measures[k] = float(measures[k])
             elif k == "average_cross_entropy_over_epoch/train":
                 filtered_measures["sotl-1"] = float(measures[k])
+
+        for k, v in self.config.items():
+            filtered_measures[k] = v
 
         self.pacbayes_correction(filtered_measures)
         self.vc_dim(filtered_measures)
@@ -316,13 +325,14 @@ class Run:
 
 
 if __name__ == "__main__":
-    cleaned_runs = {x: make_runs(x) for x in config_values_dict}
-    for x in cleaned_runs:
-        with open("./data.nosync/runs/{}.pickle".format(x), "wb+") as f:
-            pickle.dump(cleaned_runs[x], f)
+    for seed in [0, 17, 43]:
+        cleaned_runs = {x: make_runs(x, seed) for x in config_values_dict}
+        for x in cleaned_runs:
+            with open("./new_data.nosync/runs/{}-{}.pickle".format(x, seed), "wb+") as f:
+                pickle.dump(cleaned_runs[x], f)
 
-    all_runs, base_runs = make_combined(cleaned_runs)
-    with open("./data.nosync/runs/all.pickle", "wb+") as f:
-        pickle.dump(all_runs, f)
-    with open("./data.nosync/runs/base.pickle", "wb+") as f:
-        pickle.dump(base_runs, f)
+        all_runs, base_runs = make_combined(cleaned_runs)
+        with open("./new_data.nosync/runs/all-{}.pickle".format(seed), "wb+") as f:
+            pickle.dump(all_runs, f)
+        with open("./new_data.nosync/runs/base-{}.pickle".format(seed), "wb+") as f:
+            pickle.dump(base_runs, f)

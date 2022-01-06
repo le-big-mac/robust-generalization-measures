@@ -74,20 +74,6 @@ measure_types = {
             "spec_init_shifted_margin",
             "spec_orig_shifted_margin"
         ]),
-    # "pos_margin":
-    #     tuple([
-    #         "pos_margin",
-    #         "fro_over_spec_over_pos_margin_fft",
-    #         "log_prod_of_fro_over_pos_margin",
-    #         "log_prod_of_spec_over_pos_margin_fft",
-    #         "log_spec_init_main_pos_margin_fft",
-    #         "log_spec_orig_main_pos_margin_fft",
-    #         "log_sum_of_fro_over_pos_margin",
-    #         "log_sum_of_spec_over_pos_margin_fft",
-    #         "path_norm_over_pos_margin",
-    #         "spec_init_pos_margin",
-    #         "spec_orig_pos_margin"
-    #     ]),
     "pac_bayes":
         tuple([
             "pacbayes_flatness", 
@@ -139,5 +125,19 @@ measure_types = {
             "sotl-10",
             "_step",
             "epoch"
-        ])
+        ]),
+    "hps":
+        tuple([
+            "lr",
+            "batch_norm",
+            "batch_size",
+            "model_depth",
+            "dropout_prob"
+        ]),
+    "oracles":
+        tuple([
+            "oracle 0.01"
+            "oracle 0.02"
+            "oracle 0.05"
+        ]),
 }

@@ -4,7 +4,7 @@ import sys
 import numpy as np
 from save_measures import Run
 from config import measure_types
-from precomputation import sign_error
+from precomputation import sign_correlation
 
 
 def calculate_margins():
@@ -66,7 +66,7 @@ def setup_errors(self, run1, run2):
                 except KeyError:
                     continue
 
-                error_dict[m] = sign_error(c_max, c_min, g_max, g_min)
+                error_dict[m] = sign_correlation(c_max, c_min, g_max, g_min)
 
         elif step > min_max:
             error_dict = self.future_errors[step] = {}
@@ -77,4 +77,4 @@ def setup_errors(self, run1, run2):
                     c_min = min_run.measures[min_max][m]
                 except KeyError:
                     continue
-                error_dict[m] = sign_error(c_max, c_min, g_max, g_min)
+                error_dict[m] = sign_correlation(c_max, c_min, g_max, g_min)

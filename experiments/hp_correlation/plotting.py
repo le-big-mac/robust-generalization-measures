@@ -5,66 +5,103 @@ import sys
 import os
 import pickle
 from correlations import overall_correlation
+from config import params, ExperimentType
 
 
-def overall_corr_figs():
-    steps = [0.001, 0.01, 0.1, 1] + list(range(5, 301, 5))
-    corrs = {}
-    corrs["test_acc"] = []
+def hp_corr_fig():
+    def differ_in_only_key(config_pair, hp):
+        i = params.index(hp)
 
-    for a in ["margin", "exponential_margin", "normalized_exponential_margin", "shifted_margin",
-              "pac_bayes", "vc_dim", "norms", "optimisation"]:
-        with open("./data.nosync/pre-comp-correlations-future/{}-best.pickle".format(a), "rb") as f:
-            pair_corrs = pickle.load(f)
+        fixed1 = tuple(config_pair[0][0][j] for j in range(len(params)) if j != i)
+        fixed2 = tuple(config_pair[1][0][j] for j in range(len(params)) if j != i)
 
-        corrs[a] = []
-        overall_corrs = overall_correlation(pair_corrs)
+        truth = fixed1 == fixed2 and \
+                config_pair[0][0][i] != config_pair[1][0][i] \
+                and ExperimentType.BATCH_NORM not in config_pair[0][1] \
+                and ExperimentType.BATCH_NORM not in config_pair[1][1]
 
-        for s in steps:
-            max_corr = 0
-            for x in overall_corrs["weighted"][s]:
-                c = abs(np.mean([b[0] for b in overall_corrs["weighted"][s][x] if b[2] > 1]))
+        if truth:
+            return fixed1
+        else:
+            return None
 
-                if x == "accuracy/test":
-                    corrs["test_acc"].append(c)
-                elif c > max_corr:
-                    max_corr = c
+    with open("./data.nosync/pre-comp-correlations-future/margin-best.pickle", "rb") as f:
+        pair_corrs = pickle.load(f)
 
-            corrs[a].append(max_corr)
+    corr_dict = pair_corrs["weighted"]
+    hp = "lr"
 
-    margin = []
-    for i in range(len(steps)):
-        margin.append(max(corrs["margin"][i], corrs["exponential_margin"][i],
-                          corrs["normalized_exponential_margin"][i], corrs["shifted_margin"][i]))
+    envs = {}
 
-    corrs_new = {k: v for k, v in corrs.items() if k in ["pac_bayes", "vc_dim", "norms", "optimisation", "test_acc"]}
-    corrs_new["margin"] = margin
+    for hp_pair, steps_dict in corr_dict.items():
+        key = differ_in_only_key(hp_pair, hp)
 
-    plt.figure(figsize=(10, 7))
-    for x in corrs_new:
-        plt.plot(steps[:5], corrs_new[x][:5], label=x)
+        if key is None:
+            continue
 
-    plt.ylim([0, 0.7])
-    plt.xlabel("epoch")
-    plt.ylabel("absolute correlation")
-    plt.legend()
-    plt.show()
+        key_corrs = envs.get(key, {})
 
+        for step in [0.001, 0.01, 0.1, 1, 5, 10, 15, 20]:
+            if step not in steps_dict:
+                continue
 
-def correlation_envelope(correlations, measure, steps):
-    x = steps
-    # mean
-    y = [np.mean([x[0] for x in correlations[s][measure]]) for s in steps]
-    error = [np.std([x[0] for x in correlations[s][measure]]) for s in steps]
-    # median
-    # y = [np.median([x[0] for x in correlations[s][measure]]) for s in steps]
-    # upper = [np.percentile([x[0] for x in correlations[s][measure]], 25) for s in steps]
-    # lower = [np.percentile([x[0] for x in correlations[s][measure]], 75) for s in steps]
+            measures_dict, _, total_weight = steps_dict[step]
 
-    plt.plot(x, y, "k-")
-    plt.title(measure)
-    # mean
-    # plt.fill_between(x, [max(y[i]-error[i], -1) for i in range(len(y))], [min(y[i]+error[i], 1) for i in range(len(y))])
-    # median
-    # plt.fill_between(x, lower, upper)
-    plt.show()
+            step_corrs = key_corrs.get(step, {})
+
+            if total_weight > 1:
+                for measure, corr in measures_dict.items():
+                    measure_corrs = step_corrs.get(measure, [])
+                    measure_corrs.append(corr)
+                    step_corrs[measure] = measure_corrs
+
+            key_corrs[step] = step_corrs
+
+        envs[key] = key_corrs
+
+    env_corrs = {}
+
+    for key, key_corrs in envs.items():
+        env_corrs[key] = {}
+
+        for step, step_corrs in key_corrs.items():
+            env_corrs[key][step] = {}
+
+            for measure, measure_corrs in step_corrs.items():
+                env_corrs[key][step][measure] = np.mean(measure_corrs)
+
+    e = {k: v for k, v in env_corrs.items() if k[3] == 0}
+
+    collect_dists = {}
+
+    for key, key_corrs in e.items():
+        for step, step_corrs in key_corrs.items():
+            collect_dists[step] = collect_dists.get(step, {})
+
+            for measure, corr in step_corrs.items():
+                collect_dists[step][measure] = collect_dists[step].get(measure, [])
+                collect_dists[step][measure].append(corr)
+
+    def box_plot_batches(ax, steps, corrs_list):
+        bp = ax.boxplot(corrs_list, positions=steps, widths=5, showmeans=True)
+        ax.plot(steps, [np.median(c) for c in corrs_list])
+        ax.set_ylim([-1, 1])
+        ax.set_xlim([-5, 105])
+        ax.set_xlabel("batches")
+        ax.set_ylabel("correlation")
+
+    def box_plot_epochs(ax, steps, corrs_list):
+        ax.boxplot(corrs_list, positions=steps, widths=1, showmeans=True)
+        ax.plot(steps, [np.median(c) for c in corrs_list])
+        ax.set_ylim([-1, 1])
+        ax.set_xlim(0, 21)
+        ax.set_xlabel("epochs")
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+    fig.suptitle("margin")
+
+    batches = [0.001, 0.01, 0.1]
+    box_plot_batches(ax1, [int(i * 1000) for i in batches], [collect_dists[i]["margin"] for i in batches])
+
+    epochs = [1, 5, 10, 15, 20]
+    box_plot_epochs(ax2, epochs, [collect_dists[i]["margin"] for i in epochs])
